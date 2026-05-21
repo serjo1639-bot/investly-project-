@@ -1,0 +1,81 @@
+================================================================
+  Investly Database — Setup Guide
+================================================================
+
+
+STEP 0 — Start PostgreSQL
+----------------------------------------------------------------
+1. Press  Win + R  →  type  services.msc  →  press Enter
+2. Find "postgresql-x64-15" in the list
+3. Right-click it → Start
+4. Close the window
+
+
+STEP 1 — Create the database
+----------------------------------------------------------------
+1. Open pgAdmin 4
+2. Expand Servers → PostgreSQL 15
+3. Right-click Databases → Create → Database
+4. Name:  InvestlyDB
+5. Click Save
+
+
+STEP 2 — Run the 4 files IN THIS EXACT ORDER
+----------------------------------------------------------------
+Run them one by one using pgAdmin Query Tool:
+
+  1. schema.sql
+  2. views.sql
+  3. stored_procedures.sql
+  4. seed.sql
+
+HOW TO RUN EACH FILE:
+  1. Click on InvestlyDB in the left panel
+  2. Click the Query Tool button (lightning bolt icon at the top)
+  3. Click Open File (folder icon) → select the file
+  4. Press F5 to run
+  5. Check the bottom panel — you should see a success message
+  6. Repeat for the next file
+
+
+STEP 3 — Success messages
+----------------------------------------------------------------
+After schema.sql           →  NOTICE: Schema created successfully.
+After views.sql            →  NOTICE: Views created successfully.
+After stored_procedures.sql→  NOTICE: Stored procedures created successfully.
+After seed.sql             →  NOTICE: Seed data inserted successfully.
+
+
+STEP 4 — Test accounts
+----------------------------------------------------------------
+  Role      Email                  Password
+  --------  ---------------------  ----------
+  Admin     admin@investly.ly      (see note)
+  Investor  ahmed@test.ly          (see note)
+  Investor  sara@test.ly           (see note)
+  Owner     fatima@test.ly         (see note)
+
+NOTE: Passwords won't work until the backend replaces the
+placeholder hashes with real BCrypt hashes (e.g. "Test@123").
+
+Wallet top-up method:
+  Users top up their wallet by entering their bank card details
+  (card number, expiry, CVV, IBAN, bank name, billing address)
+  through the Secure Payment screen in the app.
+  No prepaid card codes — the old recharge card system was removed.
+
+
+STEP 5 — Connect your backend
+----------------------------------------------------------------
+Node.js / Next.js  (.env.local):
+  DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/InvestlyDB
+
+ASP.NET  (appsettings.json):
+  "DefaultConnection": "Host=localhost;Port=5432;Database=InvestlyDB;Username=postgres;Password=YOUR_PASSWORD"
+
+Replace YOUR_PASSWORD with the password you set when you installed PostgreSQL.
+
+
+================================================================
+  END OF GUIDE
+================================================================

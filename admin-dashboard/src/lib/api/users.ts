@@ -1,3 +1,12 @@
+/**
+ * All API calls related to users.
+ * Each function sends an HTTP request to the backend (or the mock adapter in dev)
+ * and returns the data portion of the response.
+ *
+ * Usage: import { usersApi } from '@/lib/api/users';
+ *        const users = await usersApi.getAllUsers({ page: 1 });
+ */
+
 import apiClient from './config';
 import { User, PaginatedResponse } from '@/types';
 
@@ -36,10 +45,7 @@ export const usersApi = {
   banUser: async (userId: string): Promise<void> => {
     await apiClient.post(`/admin/users/${userId}/ban`);
   },
-
-  unbanUser: async (userId: string): Promise<void> => {
-    await apiClient.post(`/admin/users/${userId}/unban`);
-  },
+  // NOTE: there is no "unban" — a ban is permanent (use suspendUser/unsuspendUser for temporary restrictions)
 
   suspendUser: async (userId: string, reason?: string): Promise<void> => {
     await apiClient.post(`/admin/users/${userId}/suspend`, { reason });
@@ -64,5 +70,13 @@ export const usersApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data?.data ?? response.data;
+  },
+
+  approveKyc: async (userId: string): Promise<void> => {
+    await apiClient.post(`/admin/users/${userId}/kyc/approve`);
+  },
+
+  rejectKyc: async (userId: string, reason?: string): Promise<void> => {
+    await apiClient.post(`/admin/users/${userId}/kyc/reject`, { reason });
   },
 };

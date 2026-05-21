@@ -239,22 +239,11 @@ export default function SettingsPage() {
                   />
                   <Input label="Platform Name" defaultValue="Investly" />
                   <Input label="Support Email" defaultValue="support@investly.ly" type="email" />
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-text-primary mb-1.5">Default Currency</label>
-                      <select className="w-full px-3 py-2.5 rounded-xl border border-border bg-surface text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <option value="LYD">LYD - Libyan Dinar</option>
-                        <option value="USD">USD - US Dollar</option>
-                        <option value="EUR">EUR - Euro</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-text-primary mb-1.5">Default Language</label>
-                      <select className="w-full px-3 py-2.5 rounded-xl border border-border bg-surface text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                        <option value="en">English</option>
-                        <option value="ar">Arabic</option>
-                      </select>
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium text-text-primary mb-1.5">Default Currency</label>
+                    <p className="px-3 py-2.5 rounded-xl border border-border bg-surface text-sm text-text-primary">
+                      LYD — Libyan Dinar
+                    </p>
                   </div>
                   <div className="flex justify-end pt-2">
                     <Button icon={<Save size={14} />}>Save System Settings</Button>

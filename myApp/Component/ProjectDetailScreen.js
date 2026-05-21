@@ -453,27 +453,33 @@ const styles = StyleSheet.create({
   progressLabels: { justifyContent: 'space-between' },
   progressLabelTxt: { fontSize: FONTS.xs, color: COLORS.textMuted },
 
-  // ── Stats — 4 pills in a row; wrap on compact screens ────────────────────
+  // ── Stats — 4 larger pills in a 2×2 grid for better readability ─────────
   statsRow: {
-    gap: SCREEN.isCompactWidth ? SPACING.xs : SPACING.sm,
+    gap: SPACING.sm,
     flexWrap: 'wrap',
   },
   statPill: {
     flex: 1,
-    minWidth: SCREEN.isCompactWidth ? '22%' : '20%',
-    backgroundColor: COLORS.surface, borderRadius: 16,
-    paddingVertical: SPACING.sm, paddingHorizontal: SCREEN.isCompactWidth ? 3 : 5,
-    alignItems: 'center', gap: 3,
-    borderWidth: 1, borderColor: COLORS.borderLight, ...SHADOWS.sm,
+    minWidth: '45%',
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+    alignItems: 'center',
+    gap: SPACING.xs,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    ...SHADOWS.sm,
   },
   statIcon: {
-    width: SCREEN.isCompactWidth ? 28 : 32,
-    height: SCREEN.isCompactWidth ? 28 : 32,
-    borderRadius: SCREEN.isCompactWidth ? 14 : 16,
-    alignItems: 'center', justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  statValue: { fontSize: FONTS.xs, fontWeight: FONTS.bold, color: COLORS.textPrimary },
-  statLabel: { fontSize: 9, color: COLORS.textMuted, textAlign: 'center' },
+  statValue: { fontSize: FONTS.sm, fontWeight: FONTS.bold, color: COLORS.textPrimary },
+  statLabel: { fontSize: FONTS.xs, color: COLORS.textMuted, textAlign: 'center' },
 
   // ── Owner view-only notice ────────────────────────────────────────────────
   ownerNoticeCard: { borderColor: COLORS.teal + '55', backgroundColor: COLORS.tealLight },
@@ -520,17 +526,17 @@ const styles = StyleSheet.create({
   // ── CTA buttons — same pattern as ContributionScreen's actionsCol ─────────
   actionsCol: { gap: SPACING.sm, marginTop: SPACING.xs },
 
-  // Primary "Invest Now" — full-width gradient, rounded corners
-  primaryBtn: { borderRadius: 20, overflow: 'hidden', ...SHADOWS.button },
+  // Primary "Invest Now" — tall gradient button with strong shadow
+  primaryBtn: { borderRadius: 22, overflow: 'hidden', ...SHADOWS.glow },
   primaryBtnGrad: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: SPACING.sm,
-    paddingVertical: SPACING.md + 2,
+    paddingVertical: SPACING.lg,
     paddingHorizontal: SPACING.base,
   },
   primaryBtnText: {
-    color: COLORS.white, fontSize: FONTS.sm, fontWeight: FONTS.bold,
-    flex: 1, textAlign: 'center',
+    color: COLORS.white, fontSize: FONTS.base, fontWeight: FONTS.bold,
+    flex: 1, textAlign: 'center', letterSpacing: 0.3,
   },
 
   // Secondary "Add to Cart / View Cart" — full-width outline, rounded corners

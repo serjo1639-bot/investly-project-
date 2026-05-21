@@ -42,10 +42,10 @@ const ROLE_OPTIONS = [
     key: 'owner',
     icon: 'briefcase-outline',
     activeIcon: 'briefcase',
-    titleAr: 'صاحب مشروع',
-    titleEn: 'Project Owner',
-    descAr: 'أدر مشاريعك وتابع الطلبات',
-    descEn: 'Manage your projects and requests',
+    titleAr: 'مدير مشروع',
+    titleEn: 'Project Manager',
+    descAr: 'أضف مشاريعك وأدر الطلبات',
+    descEn: 'Add projects and manage requests',
   },
 ];
 

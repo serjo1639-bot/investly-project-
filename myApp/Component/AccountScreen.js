@@ -25,6 +25,9 @@ import { COLORS, FONTS, SPACING, RADIUS, SHADOWS, SCREEN } from '../constants/th
 import { useAuth } from '../hooks/useAuth';
 import { useTopPopup } from '../hooks/useTopPopup';
 
+// Local colour shortcuts so JSX below reads "ACCOUNT_ACCENT.primary" instead of
+// the longer "COLORS.primary". Also lets us change the screen's colour palette
+// in one place without touching every style rule.
 const ACCOUNT_ACCENT = {
   primary: COLORS.primary,
   primaryDark: COLORS.primaryDark,
@@ -35,6 +38,12 @@ const ACCOUNT_ACCENT = {
   warningSoft: '#fff7db',
 };
 
+/**
+ * Formats a number as Libyan Dinar.
+ * isAr = true  → "د.ل 100.00"  (Arabic layout: symbol on the right side)
+ * isAr = false → "LYD 100.00"  (English layout)
+ * Currency is always LYD — no other currency is used in this app.
+ */
 const formatCurrency = (value, isAr) => {
   const amount = Number(value || 0).toFixed(2);
   return isAr ? `د.ل ${amount}` : `LYD ${amount}`;
@@ -105,6 +114,9 @@ const AccountScreen = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(20)).current;
 
+  // When the user is logged in, fade the content in and slide it up into place.
+  // Animated.parallel runs both animations at the same time instead of one after the other.
+  // useNativeDriver: true means the animation runs on the device's native thread (smoother).
   useEffect(() => {
     if (isLoggedIn) {
       Animated.parallel([
@@ -114,12 +126,8 @@ const AccountScreen = ({ navigation }) => {
     }
   }, [fadeAnim, isLoggedIn, translateY]);
 
-  const accountTypeLabel = user?.type === 'organization'
-    ? (isAr ? 'مؤسسة' : 'Organization')
-    : (isAr ? 'فرد' : 'Individual');
-
   const roleLabel = activeRole === 'owner'
-    ? (isAr ? 'صاحب مشروع' : 'Project Owner')
+    ? (isAr ? 'مدير مشروع' : 'Project Manager')
     : activeRole === 'investor'
       ? (isAr ? 'مستثمر' : 'Investor')
       : (isAr ? 'ضيف' : 'Guest');
@@ -131,6 +139,13 @@ const AccountScreen = ({ navigation }) => {
   const projectsCount = user?.projectsCount ?? 0;
 
   const commonItems = [
+    {
+      icon: 'card-outline',
+      label: isAr ? 'المدفوعات' : 'Payments',
+      value: isAr ? 'إدارة بطاقاتك ومعاملاتك' : 'Manage cards & transactions',
+      iconColor: { color: COLORS.tealDark, backgroundColor: COLORS.tealLight },
+      onPress: () => navigation.navigate && navigation.navigate('Payments'),
+    },
     {
       icon: 'wallet-outline',
       label: isAr ? 'شحن الرصيد' : 'Recharge Wallet',
@@ -239,7 +254,7 @@ const AccountScreen = ({ navigation }) => {
               <Ionicons name="copy-outline" size={17} color={COLORS.textMuted} />
             </View>
             <View style={styles.accountTypeChip}>
-              <Text style={styles.accountTypeChipText}>{roleLabel} - {accountTypeLabel}</Text>
+              <Text style={styles.accountTypeChipText}>{roleLabel}</Text>
             </View>
           </View>
 

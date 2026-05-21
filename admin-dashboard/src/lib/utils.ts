@@ -1,5 +1,15 @@
+/**
+ * Shared utility (helper) functions used across the entire dashboard.
+ * Import what you need: import { formatCurrency, formatDate } from '@/lib/utils';
+ */
+
 import { type ClassValue, clsx } from 'clsx';
 
+/**
+ * Merges Tailwind CSS class names safely.
+ * Pass any number of class strings, arrays, or conditionals and get one clean string back.
+ * Example: cn('text-sm', isActive && 'font-bold') → 'text-sm font-bold'
+ */
 export function cn(...inputs: ClassValue[]) {
   return inputs
     .flat()
@@ -7,21 +17,24 @@ export function cn(...inputs: ClassValue[]) {
     .join(' ');
 }
 
-export function formatCurrency(amount: number, currency = 'LYD'): string {
+/** Formats a number as Libyan Dinar currency (e.g. 5000 → "LYD 5,000"). */
+export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('ar-LY', {
     style: 'currency',
-    currency,
+    currency: 'LYD',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
 }
 
+/** Shortens large numbers for display: 1500 → "1.5K", 2000000 → "2.0M". */
 export function formatNumber(num: number): string {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
   return num.toString();
 }
 
+/** Formats an ISO date string to a readable date like "15 Mar 2024". Returns "-" if empty. */
 export function formatDate(dateStr: string | undefined): string {
   if (!dateStr) return '-';
   return new Date(dateStr).toLocaleDateString('en-GB', {
@@ -31,6 +44,7 @@ export function formatDate(dateStr: string | undefined): string {
   });
 }
 
+/** Same as formatDate but also includes the time: "15 Mar 2024, 10:30". */
 export function formatDateTime(dateStr: string | undefined): string {
   if (!dateStr) return '-';
   return new Date(dateStr).toLocaleString('en-GB', {
@@ -42,6 +56,7 @@ export function formatDateTime(dateStr: string | undefined): string {
   });
 }
 
+/** Returns a human-friendly relative time: "5m ago", "3h ago", "2d ago". Falls back to formatDate for older dates. */
 export function getRelativeTime(dateStr: string): string {
   const now = new Date();
   const date = new Date(dateStr);
@@ -57,15 +72,23 @@ export function getRelativeTime(dateStr: string): string {
   return formatDate(dateStr);
 }
 
+/** Extracts up to 2 initials from a full name: "Ahmed Ali" → "AA", "Sara" → "S". */
 export function getInitials(name: string): string {
+  if (!name) return '?';
   return name
     .split(' ')
-    .map((n) => n[0])
+    .map((n) => n[0] ?? '')
+    .filter(Boolean)
     .slice(0, 2)
     .join('')
-    .toUpperCase();
+    .toUpperCase() || '?';
 }
 
+/**
+ * Converts any caught error value into a plain, readable string.
+ * Handles Axios errors (HTTP responses), network errors, and plain Error objects.
+ * Use this in catch blocks: setError(extractError(err))
+ */
 export function extractError(error: unknown): string {
   if (typeof error === 'string') return error;
   if (error && typeof error === 'object') {
@@ -85,6 +108,11 @@ export function extractError(error: unknown): string {
   return 'An unexpected error occurred';
 }
 
+/**
+ * Returns the Tailwind CSS colour classes for a given status string.
+ * Used by StatusBadge so that every component shows the same colours
+ * for "active", "pending", "failed", etc.
+ */
 export function getStatusColor(status: string): {
   bg: string;
   text: string;
@@ -105,6 +133,7 @@ export function getStatusColor(status: string): {
   return map[status] ?? { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' };
 }
 
+/** Converts a short category key to its full display name: 'agri' → 'Agriculture'. */
 export function getCategoryLabel(category: string): string {
   const labels: Record<string, string> = {
     tech: 'Technology',

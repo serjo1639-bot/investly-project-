@@ -183,6 +183,31 @@ export const RADIUS = {
   full: 9999,  // produces a perfect pill/circle regardless of element size
 };
 
+// ─── GRADIENTS ────────────────────────────────────────────────────────────────
+// Pre-defined gradient colour arrays used across the app.
+// Import and pass directly to LinearGradient's `colors` prop.
+export const GRADIENTS = {
+  // Primary CTA button gradient (left → right)
+  primary:   ['#4361EE', '#2D4EF5'],
+  // Hero / header backgrounds
+  hero:      ['#0D1B4B', '#1A237E', '#3a56e8'],
+  heroTeal:  ['#006064', '#00838F', '#004D40'],
+  heroGreen: ['#0D5A2C', '#1B6B3A', '#0A3B1C'],
+  // Dark overlay used on project card images (bottom-heavy gradient)
+  cardDark:  ['rgba(0,0,0,0)', 'rgba(8,12,46,0.68)', 'rgba(5,8,35,0.97)'],
+  // Softer overlay for hero images (top-heavy + bottom)
+  heroOverlay: ['rgba(0,0,0,0.28)', 'transparent', 'rgba(7,11,44,0.85)'],
+  // Progress / funding bars
+  accent:    ['#00B4A0', '#4361EE'],
+  // Positive / success states
+  success:   ['#059669', '#10B981'],
+  teal:      ['#00B4A0', '#059669'],
+  // Danger
+  danger:    ['#EF4444', '#DC2626'],
+  // Warm amber
+  amber:     ['#F59E0B', '#D97706'],
+};
+
 // ─── SHADOWS ──────────────────────────────────────────────────────────────────
 // iOS uses shadow* props; Android uses elevation.
 // Colors are tinted with the brand navy so shadows feel cohesive.

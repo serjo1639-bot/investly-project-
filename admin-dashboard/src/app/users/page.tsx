@@ -25,7 +25,7 @@ const PAGE_SIZE = 15;
 const ROLE_OPTIONS = [
   { value: '', label: 'All Roles' },
   { value: 'investor', label: 'Investor' },
-  { value: 'owner', label: 'Project Owner' },
+  { value: 'owner', label: 'Project Manager' },
   { value: 'admin', label: 'Admin' },
 ];
 
@@ -38,13 +38,19 @@ const STATUS_OPTIONS = [
 
 // ── Mock fallback data used when the backend is offline ───────────────────────
 
+const GENDERS = ['male', 'female', 'other'] as const;
+const LOCATIONS = ['Tripoli, Libya', 'Benghazi, Libya', 'Misrata, Libya', 'Zawiya, Libya', 'Sabha, Libya', 'Zliten, Libya'];
+
 const MOCK_USERS: User[] = Array.from({ length: 30 }, (_, i) => ({
   id: `user-${i + 1}`,
   name: ['Ahmad Al-Mansouri', 'Fatima Zahra', 'Mahmoud Ibrahim', 'Sara Ali', 'Khaled Hassan', 'Omar Said'][i % 6],
   email: `user${i + 1}@example.com`,
   phone: `+218 91 ${String(1000000 + i).slice(1)}`,
   role: (['investor', 'investor', 'owner', 'investor', 'admin'] as User['role'][])[i % 5],
-  type: i % 3 === 0 ? 'organization' : 'individual',
+  age: 22 + (i % 20),
+  gender: GENDERS[i % 3],
+  location: LOCATIONS[i % 6],
+  passportUrl: null,
   status: (['active', 'active', 'active', 'suspended', 'banned'] as Array<'active' | 'suspended' | 'banned'>)[i % 5],
   walletBalance: Math.floor(Math.random() * 50000),
   createdAt: new Date(Date.now() - i * 3 * 86400000).toISOString(),
@@ -186,10 +192,10 @@ export default function UsersPage() {
       render: (user: User) => <RoleBadge role={user.role} />,
     },
     {
-      key: 'type',
-      header: 'Type',
+      key: 'location',
+      header: 'Location',
       render: (user: User) => (
-        <span className="text-xs text-text-muted capitalize">{user.type}</span>
+        <span className="text-xs text-text-muted">{user.location || '—'}</span>
       ),
     },
     {

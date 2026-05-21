@@ -24,7 +24,13 @@
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\myApp\\\\services\" -Recurse | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\(\"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\myApp\\\\services\\\\\", \"services/\"\\) })",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\myApp\\\\Component\" -Recurse | Where-Object { $_.PSIsContainer -eq $false } | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\(\"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\myApp\\\\Component\\\\\", \"Component/\"\\) })",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\admin-dashboard\\\\src\" -Recurse | Where-Object { $_.PSIsContainer -eq $false } | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\(\"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\admin-dashboard\\\\src\\\\\", \"admin-dashboard/src/\"\\) } | Select-Object -First 100)",
-      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\.expo\" -Recurse -Exclude \"cache\" | Where-Object { $_.PSIsContainer -eq $false } | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\(\"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\.expo\\\\\", \".expo/\"\\) })"
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\.expo\" -Recurse -Exclude \"cache\" | Where-Object { $_.PSIsContainer -eq $false } | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\(\"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\.expo\\\\\", \".expo/\"\\) })",
+      "Bash(grep -rn \"USD\\\\|EUR\\\\|dollar\\\\|\\\\\\\\\\\\$\\\\|currency\\\\|Currency\\\\|language\\\\|Language\\\\|locale\\\\|Locale\\\\|lang\\\\b\\\\|Lang\\\\b\" src/ --include=\"*.ts\" --include=\"*.tsx\" -l)",
+      "Read(//c/Users/seraj/OneDrive/Desktop/مشروع التخرج/project_code/myApp/**)",
+      "Bash(grep -rn \"USD\\\\|EUR\\\\|GBP\\\\|dollar\\\\|euro\" Component/ services/ --include=\"*.js\")",
+      "Bash(claude mcp *)",
+      "Bash(npx -y @modelcontextprotocol/server-sequential-thinking --version)",
+      "Bash(npx -y @modelcontextprotocol/server-memory --version)"
     ]
   }
 }
