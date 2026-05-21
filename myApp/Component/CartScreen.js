@@ -27,16 +27,30 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { COLORS, FONTS, SPACING, RADIUS, SHADOWS, SCREEN, responsiveHeight } from '../constants/theme';
+import { COLORS, FONTS, SPACING, RADIUS, SHADOWS, GRADIENTS, SCREEN, responsiveHeight } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../hooks/useCart';
 import { buildInvestmentPayload, investmentAPI, resolveProjectImage } from '../services/api';
 import AppHeader from './AppHeader';
 import { useTopPopup } from '../hooks/useTopPopup';
 
-const Button = ({ title, onPress, size = 'md', style, loading }) => (
-  <TouchableOpacity onPress={onPress} style={[styles.btn, size === 'lg' && styles.btnLg, style]} disabled={loading}>
-    {loading ? <ActivityIndicator size="small" color={COLORS.white} /> : <Text style={styles.btnText}>{title}</Text>}
+const Button = ({ title, onPress, size = 'md', style, loading, icon, danger }) => (
+  <TouchableOpacity onPress={onPress} style={[styles.btn, style]} disabled={loading} activeOpacity={0.88}>
+    <LinearGradient
+      colors={danger ? GRADIENTS.danger : GRADIENTS.primary}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={[styles.btnGrad, size === 'lg' && styles.btnGradLg]}
+    >
+      {loading ? (
+        <ActivityIndicator size="small" color={COLORS.white} />
+      ) : (
+        <>
+          {icon && <Ionicons name={icon} size={18} color={COLORS.white} style={{ marginRight: 6 }} />}
+          <Text style={styles.btnText}>{title}</Text>
+        </>
+      )}
+    </LinearGradient>
   </TouchableOpacity>
 );
 
@@ -102,7 +116,9 @@ const CartScreen = ({ navigation }) => {
           <Button
             title={t('browseProjects')}
             onPress={() => navigation.navigate && navigation.navigate('Projects')}
-            style={{ marginTop: SPACING.md, paddingHorizontal: SPACING.xl }}
+            size="lg"
+            icon="leaf-outline"
+            style={{ marginTop: SPACING.md, alignSelf: 'stretch' }}
           />
         </View>
       </View>
@@ -172,33 +188,69 @@ const CartScreen = ({ navigation }) => {
       />
 
       <View style={styles.footer}>
-        <View style={[styles.summaryRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
-          <Text style={styles.summaryLabel}>{t('projectsCount')}:</Text>
-          <Text style={styles.summaryValue}>{totalCount}</Text>
+        {/* Summary card */}
+        <View style={styles.summaryCard}>
+          <View style={[styles.summaryRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
+            <View style={[styles.summaryRowLeft, { alignItems: isAr ? 'flex-end' : 'flex-start' }]}>
+              <Ionicons name="briefcase-outline" size={14} color={COLORS.textMuted} />
+              <Text style={styles.summaryLabel}>{t('projectsCount')}</Text>
+            </View>
+            <Text style={styles.summaryValue}>{totalCount}</Text>
+          </View>
+
+          <View style={styles.summaryDivider} />
+
+          <View style={[styles.summaryRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
+            <View style={[styles.summaryRowLeft, { alignItems: isAr ? 'flex-end' : 'flex-start' }]}>
+              <Ionicons name="trending-up-outline" size={14} color={COLORS.primary} />
+              <Text style={[styles.summaryLabel, { color: COLORS.primary }]}>{t('totalInvestment')}</Text>
+            </View>
+            <Text style={[styles.summaryValue, { color: COLORS.primary, fontSize: FONTS.md }]}>
+              {formatCurrency(totalAmount)}
+            </Text>
+          </View>
+
+          <View style={styles.summaryDivider} />
+
+          <View style={[styles.summaryRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
+            <View style={[styles.summaryRowLeft, { alignItems: isAr ? 'flex-end' : 'flex-start' }]}>
+              <Ionicons name="wallet-outline" size={14} color={canPayWithWallet ? COLORS.teal : COLORS.danger} />
+              <Text style={styles.summaryLabel}>{isAr ? 'رصيد المحفظة' : 'Wallet Balance'}</Text>
+            </View>
+            <Text style={[styles.summaryValue, { color: canPayWithWallet ? COLORS.teal : COLORS.danger }]}>
+              {formatCurrency(walletBalance)}
+            </Text>
+          </View>
         </View>
-        <View style={[styles.summaryRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
-          <Text style={styles.summaryLabel}>{t('totalInvestment')}:</Text>
-          <Text style={[styles.summaryValue, { color: COLORS.primary }]}>{formatCurrency(totalAmount)}</Text>
-        </View>
-        <View style={[styles.summaryRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
-          <Text style={styles.summaryLabel}>{isAr ? 'رصيد المحفظة' : 'Wallet Balance'}:</Text>
-          <Text style={styles.summaryValue}>{formatCurrency(walletBalance)}</Text>
-        </View>
+
+        {/* Insufficient balance warning */}
         {!canPayWithWallet && (
-          <Text style={styles.warningText}>
-            {isAr
-              ? `الرصيد غير كافٍ. يلزم شحن ${formatCurrency(shortfall)} إضافية.`
-              : `Insufficient wallet balance. You need ${formatCurrency(shortfall)} more.`}
-          </Text>
+          <View style={styles.warningBanner}>
+            <Ionicons name="alert-circle-outline" size={16} color={COLORS.danger} />
+            <Text style={styles.warningText}>
+              {isAr
+                ? `يلزم شحن ${formatCurrency(shortfall)} إضافية`
+                : `Need ${formatCurrency(shortfall)} more`}
+            </Text>
+          </View>
         )}
+
+        {/* Action button */}
         {!canPayWithWallet ? (
           <Button
             title={isAr ? 'شحن المحفظة' : 'Top Up Wallet'}
             onPress={() => navigation.navigate && navigation.navigate('RechargeWallet')}
             size="lg"
+            icon="add-circle-outline"
           />
         ) : (
-          <Button title={isAr ? 'تأكيد الدفع' : 'Confirm Payment'} onPress={handleConfirm} loading={loading} size="lg" />
+          <Button
+            title={isAr ? 'تأكيد الدفع' : 'Confirm Payment'}
+            onPress={handleConfirm}
+            loading={loading}
+            size="lg"
+            icon="lock-closed-outline"
+          />
         )}
       </View>
     </View>
@@ -240,21 +292,87 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   cartMinLabel: { fontSize: FONTS.xs, color: COLORS.textMuted },
-  amountEditor: { alignItems: 'center', backgroundColor: COLORS.backgroundDark, borderRadius: RADIUS.lg, padding: SPACING.xs, gap: SPACING.sm, flexWrap: 'wrap' },
-  stepBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center' },
-  amountValue: { fontSize: FONTS.base, fontWeight: FONTS.bold, color: COLORS.textPrimary, minWidth: 110, textAlign: 'center', flexShrink: 1 },
+  // Amount editor — larger, more premium
+  amountEditor: {
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1.5,
+    borderColor: COLORS.borderLight,
+    padding: SPACING.sm,
+    gap: SPACING.sm,
+    flexWrap: 'wrap',
+  },
+  stepBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: COLORS.primaryLight,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  amountValue: {
+    fontSize: FONTS.md, fontWeight: FONTS.bold,
+    color: COLORS.textPrimary, minWidth: 120,
+    textAlign: 'center', flexShrink: 1,
+  },
+
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl },
-  emptyIcon: { width: 100, height: 100, borderRadius: 50, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.lg },
+  emptyIcon: {
+    width: 100, height: 100, borderRadius: 50,
+    backgroundColor: COLORS.primaryLight,
+    alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.lg,
+  },
   emptyTitle: { fontSize: FONTS.lg, fontWeight: FONTS.bold, color: COLORS.textPrimary },
-  emptyDesc: { fontSize: FONTS.sm, color: COLORS.textMuted, marginTop: SPACING.xs, textAlign: 'center' },
-  footer: { backgroundColor: COLORS.white, padding: SPACING.base, borderTopWidth: 1, borderTopColor: COLORS.borderLight },
-  summaryRow: { justifyContent: 'space-between', marginBottom: SPACING.xs },
+  emptyDesc:  { fontSize: FONTS.sm, color: COLORS.textMuted, marginTop: SPACING.xs, textAlign: 'center' },
+
+  // Footer with summary + action button
+  footer: {
+    backgroundColor: COLORS.white,
+    padding: SPACING.base,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+    gap: SPACING.sm,
+  },
+  summaryCard: {
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.base,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    gap: SPACING.xs,
+  },
+  summaryRow: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  summaryRowLeft: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.xs,
+  },
+  summaryDivider: {
+    height: 1, backgroundColor: COLORS.borderLight, marginVertical: SPACING.xs,
+  },
   summaryLabel: { fontSize: FONTS.sm, color: COLORS.textSecondary },
   summaryValue: { fontSize: FONTS.sm, fontWeight: FONTS.bold, color: COLORS.textPrimary },
-  btn: { backgroundColor: COLORS.primary, paddingVertical: SPACING.md, borderRadius: RADIUS.base, alignItems: 'center', marginTop: SPACING.sm },
-  btnLg: { paddingVertical: SPACING.lg },
-  btnText: { color: COLORS.white, fontSize: FONTS.base, fontWeight: FONTS.bold, textAlign: 'center' },
-  warningText: { color: COLORS.danger, fontSize: FONTS.sm, marginBottom: SPACING.sm, textAlign: 'center' },
+
+  warningBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.xs,
+    backgroundColor: COLORS.dangerLight, borderRadius: RADIUS.base,
+    paddingVertical: SPACING.sm, paddingHorizontal: SPACING.base,
+    borderWidth: 1, borderColor: `${COLORS.danger}30`,
+  },
+  warningText: { flex: 1, color: COLORS.danger, fontSize: FONTS.sm, fontWeight: FONTS.medium },
+
+  // Gradient button — pill shape (RADIUS.full) for a modern fintech look
+  btn: { borderRadius: RADIUS.full, overflow: 'hidden', ...SHADOWS.button },
+  btnGrad: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.xl,
+    gap: 6,
+    borderRadius: RADIUS.full,
+  },
+  btnGradLg: { paddingVertical: SPACING.lg },
+  btnText: { color: COLORS.white, fontSize: FONTS.base, fontWeight: FONTS.bold },
 });
 
 export default CartScreen;

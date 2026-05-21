@@ -49,13 +49,15 @@ const EditAccountScreen = ({ navigation }) => {
   const [saving, setSaving] = useState(false);
 
   const isOwner = activeRole === 'owner';
-  const accountType = user?.type || (isOwner ? 'organization' : 'individual');
   const normalizedName = name.trim();
   const normalizedPhone = phone.trim();
   const normalizedEmail = email.trim();
   const normalizedCompany = companyName.trim();
   const normalizedBio = bio.trim();
 
+  // useMemo recalculates canSubmit only when the listed fields change,
+  // not on every render. This keeps the Save button state accurate without wasted work.
+  // Regex patterns: \+? = optional leading +,  [0-9\s]{7,20} = 7–20 digits/spaces.
   const canSubmit = useMemo(() => {
     if (!normalizedName) return false;
     if (normalizedPhone && !/^\+?[0-9\s]{7,20}$/.test(normalizedPhone)) return false;
@@ -70,13 +72,12 @@ const EditAccountScreen = ({ navigation }) => {
     setSaving(true);
     try {
       const payload = {
-        name: normalizedName,
-        phone: normalizedPhone || null,
-        email: normalizedEmail || null,
-        type: accountType,
-        role: activeRole,
+        name:        normalizedName,
+        phone:       normalizedPhone || null,
+        email:       normalizedEmail || null,
+        role:        activeRole,
         companyName: isOwner ? normalizedCompany : null,
-        bio: normalizedBio || null,
+        bio:         normalizedBio || null,
       };
 
       const response = await usersAPI.update(user.id, payload);
@@ -378,12 +379,12 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: COLORS.textPrimary,
+    color: '#111111',
     fontSize: FONTS.base,
     fontWeight: FONTS.semibold,
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.sm,
-    minHeight: 54,
+    backgroundColor: 'transparent',
   },
   affixWrap: {
     paddingHorizontal: SPACING.xs,

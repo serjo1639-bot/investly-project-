@@ -1,0 +1,347 @@
+================================================================
+  INVESTLY DATABASE — Complete Reference
+  All concepts in one place: Tables, Normalization, Joins, Relationships
+================================================================
+
+  This file is the single complete reference for the Investly database.
+  For deeper explanation of each topic, see the companion files:
+    normalization.txt   — 1NF, 2NF, 3NF explained with our tables
+    joins.txt           — join tables and SQL JOIN queries
+    relationships.txt   — 1:1, 1:M, M:M with diagrams
+
+
+================================================================
+  SECTION 1 — COMPLETE TABLE LIST (16 Tables)
+================================================================
+
+  #   Table Name                 Purpose
+  ──  ─────────────────────────  ─────────────────────────────────────────
+  1   categories                 Lookup: 6 project category names (AR/EN)
+  2   users                      Everyone who uses the platform
+  3   wallets                    One wallet (balance) per user
+  4   projects                   Investment opportunities on the platform
+  5   investments                JOIN: user investments in projects (M:M)
+  6   payments                   Every financial transaction
+  7   wallet_transactions        Ledger: every credit/debit per wallet
+  8   notifications              In-app messages (targeted or broadcast)
+  9   user_notification_reads    JOIN: per-user read state (M:M)
+  10  notification_settings      Each user's notification preferences
+  11  refresh_tokens             JWT tokens for keeping users logged in
+  12  otp_codes                  6-digit SMS codes for phone login
+  13  password_reset_codes       6-digit email codes for password reset
+  14  media                      Uploaded files (passports, images)
+  15  recharge_cards             Pre-paid voucher codes for wallet top-up
+  16  activity_logs              Audit trail of every admin action
+
+
+================================================================
+  SECTION 2 — FULL ENTITY-RELATIONSHIP DIAGRAM (text version)
+================================================================
+
+  categories ──────────────────────────────────────────┐
+      │                                                 │
+      │ 1:M (one category → many projects)             │
+      ▼                                                 │
+  users ──────────────────────────────────────────┐    │
+      │                                            │    │
+      │ 1:1                    1:M                 │    │
+      ├──────────────┐         ├──────────────┐    │    │
+      │              │         │              │    │    │
+      ▼              ▼         ▼              ▼    │    │
+  wallets    notif_       projects       payments  │    │
+      │      settings         │                   │    │
+      │                       │ 1:M               │    │
+      │ 1:M                   ▼                   │    │
+      ▼              investments ◄──── (M:M join) ┘    │
+  wallet_            (FK: investor_id ─────────────────┘
+  transactions       (FK: project_id  → projects)
+                                              │
+                             (FK: category ───┘ → categories)
+
+  notifications ◄────────────────────────────── users
+      │                                         (M:M via join table)
+      ▼
+  user_notification_reads
+  (FK: notification_id → notifications)
+  (FK: user_id         → users)
+
+  users ──────────────────────► refresh_tokens    (1:M)
+  users ──────────────────────► otp_codes         (1:M via phone)
+  users ──────────────────────► media             (1:M)
+  users ──────────────────────► activity_logs     (1:M, as admin)
+  recharge_cards ─────────────► users             (optional FK, redeemed_by)
+
+
+================================================================
+  SECTION 3 — ALL RELATIONSHIPS
+================================================================
+
+  Tables A ↔ B                  Type  How Connected
+  ─────────────────────────────  ────  ─────────────────────────────────────
+
+  1:1 — One to One
+  ─────────────────
+  users ↔ wallets                1:1   wallets.user_id UNIQUE FK → users.id
+  users ↔ notification_settings  1:1   notification_settings.user_id UNIQUE FK
+
+  1:M — One to Many
+  ──────────────────
+  users → projects               1:M   projects.owner_id → users.id
+  users → payments               1:M   payments.user_id → users.id
+  users → wallet_transactions    1:M   wallet_transactions.user_id → users.id
+  users → investments            1:M   investments.investor_id → users.id
+  users → refresh_tokens         1:M   refresh_tokens.user_id → users.id
+  users → media                  1:M   media.uploaded_by → users.id
+  users → activity_logs          1:M   activity_logs.admin_id → users.id
+  users → recharge_cards         1:M   recharge_cards.redeemed_by → users.id
+  wallets → wallet_transactions  1:M   wallet_transactions.wallet_id → wallets.id
+  projects → investments         1:M   investments.project_id → projects.id
+  investments → payments         1:M   payments.investment_id → investments.id
+  categories → projects          1:M   projects.category → categories.id
+  notifications → user_notif.r.  1:M   user_notification_reads.notification_id
+
+  M:M — Many to Many (via join tables)
+  ─────────────────────────────────────
+  users ↔ projects               M:M   via investments
+                                       (investor_id + project_id)
+  users ↔ notifications          M:M   via user_notification_reads
+                                       (user_id + notification_id)
+
+
+================================================================
+  SECTION 4 — NORMALIZATION SUMMARY
+================================================================
+
+  1NF (First Normal Form) — Atomic values, no repeating groups
+  ─────────────────────────────────────────────────────────────
+  Status:  ✓ Was already correct. All cells hold single values.
+  Example: users.role holds ONE value ('investor', not 'investor,admin')
+
+
+  2NF (Second Normal Form) — Full dependency on the primary key
+  ──────────────────────────────────────────────────────────────
+  Status:  ✓ Was already correct. All PKs are single UUIDs.
+           With a single-column PK, partial dependency is impossible.
+
+
+  3NF (Third Normal Form) — No transitive dependencies
+  ───────────────────────────────────────────────────────
+  Status:  ✗ Had a violation → ✓ Fixed.
+
+  PROBLEM FOUND:
+    projects had columns: category, category_ar, category_en
+    category_ar and category_en depend on "category", not on the project "id"
+    This means the project's PK → category → category_ar (transitive)
+
+  FIX APPLIED:
+    Created a "categories" table:
+      id (PK) | name_ar | name_en | icon
+    Removed category_ar, category_en from projects table.
+    Added FOREIGN KEY: projects.category → categories.id
+
+  BONUS FIX:
+    notifications.is_read was a single flag on a row shared by all users
+    (broadcast notifications). This couldn't correctly represent each
+    user's individual read state.
+
+    Fix: Created user_notification_reads join table.
+    Each (user_id, notification_id) pair gets its own is_read column.
+
+
+================================================================
+  SECTION 5 — JOIN TABLES
+================================================================
+
+  A join table (junction table) sits between two tables in a M:M
+  relationship. It has foreign keys to both sides and may carry
+  its own columns (extra data about the relationship).
+
+  Join Table 1: investments
+  ─────────────────────────
+  Connects:  users (as investors) ↔ projects
+  Columns:   investor_id (FK), project_id (FK),
+             amount, currency_code, payment_method, status, reference
+
+  Meaning: "Ahmed invested 2500 LYD in Tech Platform via wallet, completed"
+  This data belongs to the RELATIONSHIP, not to Ahmed and not to the project.
+
+  Join Table 2: user_notification_reads
+  ──────────────────────────────────────
+  Connects:  users ↔ notifications
+  Columns:   user_id (FK), notification_id (FK), is_read, read_at
+
+  Meaning: "Sara has NOT read the Welcome broadcast notification"
+  The read state belongs to the USER-NOTIFICATION pair, not to either alone.
+
+
+================================================================
+  SECTION 6 — VIEWS (pre-written JOIN queries)
+================================================================
+
+  Instead of writing JOIN queries in the backend code every time,
+  we wrote them once as views. The backend just does SELECT * FROM view.
+
+  View                       Tables Joined
+  ─────────────────────────  ──────────────────────────────────────────
+  vw_project_summary         projects + categories + users (owner)
+                             → gives: category names, owner name, progress %
+
+  vw_user_summary            users + wallets + investments + projects
+                             → gives: balance, total invested, project count
+
+  vw_investment_details      investments + projects + users (investor)
+                             → gives: project title, investor name, amount
+
+  vw_payment_details         payments + users (payer) + users (approver)
+                             → uses a SELF-JOIN on users twice
+
+  vw_wallet_details          wallets + users
+                             → gives: wallet balance with user info
+
+  vw_admin_dashboard_stats   subqueries across all core tables
+                             → gives: total users, revenue, success rate
+
+
+================================================================
+  SECTION 7 — STORED FUNCTIONS
+================================================================
+
+  These are pre-written business logic procedures stored in the DB.
+  The backend calls them with SELECT fn_name(params).
+
+  Function                  What it does (ALL steps in one transaction)
+  ────────────────────────  ──────────────────────────────────────────────
+  fn_confirm_investment     Deduct wallet → create investment → create payment
+                            → update project.raised → increment investors_count
+                            Returns: 0=OK, 1=no user, 2=no project,
+                                     3=low balance, 4=below minimum, -1=error
+
+  fn_top_up_wallet          Add funds → create wallet if needed → write
+                            wallet_transaction (credit) → write payment
+                            Returns: new balance
+
+  fn_approve_kyc            Set kyc_status='approved', is_verified=TRUE,
+                            status='active' (if pending) → write activity log
+
+  fn_reject_kyc             Set kyc_status='rejected' + reason
+                            → write activity log
+
+  fn_approve_project        Set project status='active' → write activity log
+
+  fn_reject_project         Set project status='rejected' + reason
+                            → write activity log
+
+  fn_refund_payment         Mark payment 'refunded' → cancel investment
+                            → reduce project.raised → credit wallet
+                            → write wallet_transaction → write activity log
+
+  fn_suspend_user           Set status='suspended' → write activity log
+  fn_unsuspend_user         Set status='active'    → write activity log
+  fn_ban_user               Set status='banned', freeze wallet → activity log
+                            NOTE: permanent — there is no fn_unban_user
+
+  fn_redeem_recharge_card   Validate code → mark redeemed → call fn_top_up_wallet
+                            Returns: 0=OK, 1=not found, 2=already used, 3=expired
+
+
+================================================================
+  SECTION 8 — HOW THE APP CONNECTS TO THE DATABASE
+================================================================
+
+                ┌──────────────────┐
+                │  React Native    │  Mobile app (iOS / Android)
+                │  (myApp/)        │
+                └────────┬─────────┘
+                         │ HTTP / REST API
+                         │
+                ┌────────▼─────────┐
+                │  Backend API     │  ASP.NET C# or Node.js
+                │  (to be built)   │  Handles auth, validates, calls DB
+                └────────┬─────────┘
+                         │ SQL queries
+                         │
+                ┌────────▼─────────┐
+                │  PostgreSQL 15   │  This database
+                │  InvestlyDB      │
+                └──────────────────┘
+                         ▲
+                         │ HTTP / REST API
+                         │
+                ┌────────┴─────────┐
+                │  Next.js         │  Admin dashboard (admin-dashboard/)
+                │  Admin Dashboard │
+                └──────────────────┘
+
+  Currently both apps run in MOCK MODE (no real backend needed for dev).
+  When the backend is built:
+    Mobile app  → set useMockApi=false in app.json
+    Admin panel → set NEXT_PUBLIC_USE_MOCK=false in .env.local
+
+  The backend will:
+    1. Accept the HTTP endpoints listed in backendConfig.js
+    2. Map camelCase JSON ↔ snake_case DB columns automatically
+       (ASP.NET does this with JsonNamingPolicy.CamelCase)
+    3. Query the views and call the functions listed above
+    4. Return JSON responses
+
+
+================================================================
+  SECTION 9 — FIELD MAPPING (camelCase ↔ snake_case)
+================================================================
+
+  The app uses camelCase. The database uses snake_case.
+  The backend converts between them automatically.
+
+  App (JSON)           Database column        Table
+  ───────────────────  ─────────────────────  ──────────────────
+  titleAr              title_ar               projects
+  titleEn              title_en               projects
+  categoryAr           name_ar                categories (via view)
+  categoryEn           name_en                categories (via view)
+  minInvestment        min_investment         projects
+  investorsCount       investors_count        projects
+  viewsCount           views_count            projects
+  isVerified           is_verified            users
+  kycStatus            kyc_status             users
+  passportUrl          passport_url           users
+  memberId             member_id              users
+  walletBalance        wallet_balance         vw_user_summary
+  contributionTotal    contribution_total     vw_user_summary
+  createdAt            created_at             (all tables)
+  updatedAt            updated_at             (all tables)
+  paymentMethod        payment_method         investments / payments
+  transactionId        transaction_id         payments
+  approvedBy           approved_by            payments
+  isRead               is_read                user_notification_reads
+  targetUserId         target_user_id         notifications
+
+
+================================================================
+  SECTION 10 — TEST ACCOUNTS (from seed.sql)
+================================================================
+
+  Role      Name          Email                Phone           Wallet
+  ────────  ────────────  ───────────────────  ──────────────  ──────────
+  admin     Admin User    admin@investly.ly    +218911000001   0 LYD
+  investor  Ahmed Ali     ahmed@test.ly        +218911111111   5,000 LYD
+  investor  Sara Khalil   sara@test.ly         +218944444444   2,500 LYD (frozen)
+  investor  Omar Mansour  omar@test.ly         +218933333333   0 LYD (pending KYC)
+  owner     Fatima Hassan fatima@test.ly       +218922222222   0 LYD
+
+  Test projects:
+    PRJ-001  Advanced Tech Platform   active     65,000 / 100,000 LYD
+    PRJ-002  Solar Energy Farm        active    120,000 / 500,000 LYD
+    PRJ-003  Smart Agriculture        pending         0 /  80,000 LYD
+    PRJ-004  Community Health Clinic  completed 200,000 / 200,000 LYD
+
+  Test recharge cards:
+    INV-LYD-100-0001    →  100 LYD  (unused)
+    INV-LYD-500-0001    →  500 LYD  (unused)
+    INV-LYD-1000-0001   →  1,000 LYD (unused)
+    INV-LYD-5000-0001   →  5,000 LYD (unused)
+    INV-LYD-10000-0001  →  10,000 LYD (unused)
+    INV-LYD-USED-0001   →  500 LYD  (ALREADY REDEEMED — for testing error)
+
+================================================================
+  END OF COMPLETE REFERENCE
+================================================================

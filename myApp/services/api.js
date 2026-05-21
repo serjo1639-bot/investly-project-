@@ -218,11 +218,13 @@ const delay = (ms = 400) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // ─── resolveUserRole ──────────────────────────────────────────────────────────
 /**
- * Normalise any role string coming from the server to one of the three
- * recognised app roles.  Unknown or missing roles become 'guest'.
+ * Normalise any role string coming from the server to one of the recognised
+ * app roles.  'project_manager' is accepted as an alias for 'owner'.
+ * Unknown or missing roles become 'guest'.
  */
 export const resolveUserRole = (value) => {
-  if (value === 'owner' || value === 'investor' || value === 'admin') return value;
+  if (value === 'owner' || value === 'project_manager') return 'owner';
+  if (value === 'investor' || value === 'admin') return value;
   return 'guest';
 };
 
@@ -520,8 +522,7 @@ export const buildInvestmentPayload = (items = []) => ({
  * memberId is derived from the last 8 digits of the phone number when not provided.
  */
 export const mapAuthSession = (data = {}) => {
-  const role        = resolveUserRole(data.role || data.userType || data.user_role || data.userTypeId);
-  const accountType = data.accountType || data.type || 'individual';
+  const role = resolveUserRole(data.role || data.userType || data.user_role || data.userTypeId);
 
   return {
     id:                 data.id           || data.userId      || data.phone || '1',
@@ -529,7 +530,10 @@ export const mapAuthSession = (data = {}) => {
     phone:              data.phone        || '',
     email:              data.email        || '',
     role,
-    type:               accountType,
+    age:                data.age          ? Number(data.age) : null,
+    gender:             data.gender       || null,
+    location:           data.location     || null,
+    passportUrl:        data.passportUrl  || data.passport_url || null,
     memberId:           data.memberId,
     walletBalance:      Number(data.walletBalance       ?? data.wallet_balance      ?? 0),
     totalTopups:        Number(data.totalTopups         ?? data.total_topups        ?? 0),
@@ -553,11 +557,13 @@ export const mapLoginPayload = ({ phone, otp, role }) => ({
 export const mapRegisterPayload = (data = {}) => ({
   name:          data.name,
   phone:         data.phone,
-  email:         data.email    || null,
+  email:         data.email       || null,
   role:          resolveUserRole(data.role),
-  type:          data.type     || 'individual',
-  companyName:   data.companyName  || null,
-  bio:           data.bio          || null,
+  age:           data.age         ? Number(data.age) : null,
+  gender:        data.gender      || null,
+  location:      data.location    || null,
+  passportUrl:   data.passportUrl || null,
+  companyName:   data.companyName || null,
   password:      data.password,
   termsAccepted: Boolean(data.termsAccepted),
 });
@@ -672,8 +678,7 @@ export const authAPI = {
         id:   '1',
         phone,
         role: payload.role,
-        type: payload.role === 'owner' ? 'organization' : 'individual',
-        name: payload.role === 'owner' ? 'صاحب مشروع' : 'مستثمر',
+        name: payload.role === 'owner' ? 'مدير مشروع' : 'مستثمر',
       });
       return { success: true, token: 'mock-token', user };
     }
@@ -694,7 +699,6 @@ export const authAPI = {
         id:   '1',
         phone,
         role: 'investor',
-        type: 'individual',
         name: 'مستخدم تجريبي',
       });
       return { success: true, token: 'mock-token', user };
@@ -716,8 +720,7 @@ export const authAPI = {
         id:   '1',
         phone,
         role: payload.role,
-        type: payload.role === 'owner' ? 'organization' : 'individual',
-        name: payload.role === 'owner' ? 'صاحب مشروع' : 'مستخدم تجريبي',
+        name: payload.role === 'owner' ? 'مدير مشروع' : 'مستخدم تجريبي',
       });
       return { success: true, token: 'mock-token', refreshToken: 'mock-refresh-token', user };
     }
@@ -733,7 +736,7 @@ export const authAPI = {
   register: async (data) => {
     const payload = mapRegisterPayload(data);
     if (shouldUseMock()) {
-      await delay();
+      await delay(800);
       const user = mapAuthSession(payload);
       return { success: true, token: 'mock-token', refreshToken: 'mock-refresh-token', user };
     }
@@ -749,7 +752,7 @@ export const authAPI = {
   getProfile: async () => {
     if (shouldUseMock()) {
       await delay();
-      return mapAuthSession({ id: '1', phone: '+218XXXXXXXXX', name: 'مستخدم تجريبي', role: 'investor', type: 'individual' });
+      return mapAuthSession({ id: '1', phone: '+218XXXXXXXXX', name: 'مستخدم تجريبي', role: 'investor' });
     }
     const response = await apiRequest({ path: API_CONFIG.endpoints.auth.profile });
     return extractData(response, {});
@@ -788,11 +791,10 @@ export const authAPI = {
     if (shouldUseMock()) {
       await delay();
       const user = mapAuthSession({
-        id:   '1',
+        id:    '1',
         email: payload.email,
-        role: payload.role,
-        type: payload.role === 'owner' ? 'organization' : 'individual',
-        name: payload.role === 'owner' ? 'صاحب مشروع' : 'مستخدم تجريبي',
+        role:  payload.role,
+        name:  payload.role === 'owner' ? 'مدير مشروع' : 'مستخدم تجريبي',
       });
       return { success: true, token: 'mock-token', refreshToken: 'mock-refresh-token', user };
     }
@@ -853,7 +855,6 @@ export const authAPI = {
         id:   '1',
         email: email.trim().toLowerCase(),
         role: 'investor',
-        type: 'individual',
         name: 'مستخدم',
       });
       return { success: true, token: 'mock-token', refreshToken: 'mock-refresh-token', user };
@@ -1078,7 +1079,7 @@ export const notificationsAPI = {
       await delay(400);
       return { data: MOCK_NOTIFICATIONS, unreadCount: MOCK_NOTIFICATIONS.filter((n) => !n.isRead).length };
     }
-    return apiRequest({ path: API_CONFIG.endpoints.notifications?.getAll || '/notifications' });
+    return apiRequest({ path: API_CONFIG.endpoints.notifications.list });
   },
 
   markAllAsRead: async () => {
@@ -1101,5 +1102,47 @@ export const notificationsAPI = {
       path:   `/notifications/${id}/read`,
       method: 'POST',
     });
+  },
+};
+
+// ─── paymentsAPI ──────────────────────────────────────────────────────────────
+/**
+ * Payment operations for the PaymentsScreen and SecurePaymentScreen.
+ *
+ * getWallet       — fetch current wallet balance + deposit/withdrawal totals
+ * getTransactions — paginated payment history with optional status filter
+ * initiatePayment — submit a new card-based payment to the backend
+ */
+export const paymentsAPI = {
+  getWallet: async () => {
+    if (shouldUseMock()) {
+      await delay();
+      return { data: { balance: 12500, totalDeposits: 45000, totalWithdrawals: 32500 } };
+    }
+    return apiRequest({ path: API_CONFIG.endpoints.payments.wallet });
+  },
+
+  getTransactions: async ({ page = 1, status } = {}) => {
+    if (shouldUseMock()) {
+      await delay();
+      const mockTx = [
+        { id: 'tx1', titleAr: 'دفع استثمار - مشروع تقني', titleEn: 'Investment - Tech Platform', date: '2026-05-15', amount: 5000, status: 'completed', type: 'debit' },
+        { id: 'tx2', titleAr: 'إيداع محفظة', titleEn: 'Wallet Deposit', date: '2026-05-10', amount: 10000, status: 'completed', type: 'credit' },
+        { id: 'tx3', titleAr: 'دفع استثمار - طاقة شمسية', titleEn: 'Investment - Solar Energy', date: '2026-05-08', amount: 3000, status: 'pending', type: 'debit' },
+        { id: 'tx4', titleAr: 'استرجاع دفعة', titleEn: 'Payment Refund', date: '2026-04-28', amount: 1500, status: 'refunded', type: 'credit' },
+        { id: 'tx5', titleAr: 'دفع فاشل', titleEn: 'Failed Payment', date: '2026-04-20', amount: 2000, status: 'failed', type: 'debit' },
+      ];
+      if (status) return { data: mockTx.filter((t) => t.status === status) };
+      return { data: mockTx };
+    }
+    return apiRequest({ path: API_CONFIG.endpoints.payments.history, query: { page, status } });
+  },
+
+  initiatePayment: async (data) => {
+    if (shouldUseMock()) {
+      await delay(1200);
+      return { success: true, transactionId: `TXN-${Date.now()}`, status: 'pending', message: 'Payment submitted successfully' };
+    }
+    return apiRequest({ path: API_CONFIG.endpoints.payments.initiate, method: 'POST', body: data });
   },
 };

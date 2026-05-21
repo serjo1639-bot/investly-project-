@@ -63,7 +63,7 @@ const DrawerContent = (props) => {
   const profileName = user?.companyName || user?.name || (isAr ? 'زائر' : 'Guest');
   const memberId = user?.id || (isAr ? 'معرف ضيف' : 'GuestID');
   const roleLabel = activeRole === 'owner'
-    ? (isAr ? 'صاحب مشروع' : 'Project Owner')
+    ? (isAr ? 'مدير مشروع' : 'Project Manager')
     : activeRole === 'investor'
       ? (isAr ? 'مستثمر' : 'Investor')
       : (isAr ? 'ضيف' : 'Guest');
@@ -106,6 +106,9 @@ const DrawerContent = (props) => {
     }
   };
 
+  // Switches the app between Arabic and English.
+  // The label shown in the drawer always shows the OTHER language so the user
+  // knows what they'll switch TO, not what they're currently on.
   const toggleLang = async () => {
     const next = isAr ? 'en' : 'ar';
     await changeLanguage(next);

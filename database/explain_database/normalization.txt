@@ -1,0 +1,229 @@
+================================================================
+  DATABASE NORMALIZATION — What it is and what we fixed
+  Investly Project — Explained with our actual tables
+================================================================
+
+----------------------------------------------------------------
+  WHAT IS NORMALIZATION?
+----------------------------------------------------------------
+
+Normalization is a set of rules that make sure data is stored
+in the cleanest, most efficient way possible.
+
+The goals are:
+  1. Never store the same piece of data in two places
+  2. Make sure every column depends on the primary key, and ONLY
+     the primary key
+  3. Make it easy to update data without breaking anything
+
+Think of it like this: if you write a person's name in 100 places,
+and their name changes, you have to update 100 rows. If you store
+it in ONE place and reference it everywhere else, you update 1 row.
+
+Normalization is divided into "normal forms" (NF).
+We care about the first three: 1NF, 2NF, and 3NF.
+
+
+================================================================
+  1NF — FIRST NORMAL FORM
+  Rule: Every cell must hold ONE value. No lists, no groups.
+================================================================
+
+BAD (not 1NF) — storing multiple values in one cell:
+┌──────────┬───────────────────────────────────────┐
+│ user_id  │ roles                                 │
+├──────────┼───────────────────────────────────────┤
+│ 1        │ investor, admin                       │  ← TWO values in one cell!
+│ 2        │ owner                                 │
+└──────────┴───────────────────────────────────────┘
+
+GOOD (1NF) — one value per cell:
+┌──────────┬──────────┐
+│ user_id  │ role     │
+├──────────┼──────────┤
+│ 1        │ investor │
+│ 1        │ admin    │
+│ 2        │ owner    │
+└──────────┴──────────┘
+
+OUR DATABASE — Is it in 1NF?
+  YES. Every column holds exactly one value.
+  Example: users.role holds ONE value ('investor', 'owner', etc.)
+  Example: projects.category holds ONE value ('tech', 'energy', etc.)
+
+  No action was needed for 1NF. ✓
+
+
+================================================================
+  2NF — SECOND NORMAL FORM
+  Rule: Every non-key column must depend on the FULL primary key.
+  (Only relevant when the primary key has multiple columns.)
+================================================================
+
+BAD (not 2NF) — imagine a table with a composite primary key:
+┌───────────┬────────────┬──────────────┬───────────────┐
+│ user_id   │ project_id │ amount       │ project_name  │
+│ (PK part) │ (PK part)  │              │               │
+├───────────┼────────────┼──────────────┼───────────────┤
+│ u1        │ p1         │ 5000         │ Tech Platform │  ← project_name
+│ u2        │ p1         │ 3000         │ Tech Platform │    depends only
+│ u1        │ p2         │ 1000         │ Solar Farm    │    on project_id,
+└───────────┴────────────┴──────────────┴───────────────┘    not on user_id!
+
+"project_name" only depends on project_id, not on the combination
+of user_id + project_id. That is a 2NF violation.
+
+GOOD (2NF) — split into two tables:
+  investments (user_id PK, project_id PK, amount)   ← amount needs BOTH keys
+  projects    (project_id PK, project_name)          ← name needs only project_id
+
+OUR DATABASE — Is it in 2NF?
+  YES. All our tables use a single UUID primary key, so 2NF is
+  automatically satisfied (you can't have a partial dependency
+  when the PK is a single column).
+
+  No action was needed for 2NF. ✓
+
+
+================================================================
+  3NF — THIRD NORMAL FORM
+  Rule: Every non-key column must depend ONLY on the primary key —
+        NOT on another non-key column.
+  In other words: no column should be derivable from another column.
+================================================================
+
+THE VIOLATION WE FOUND AND FIXED: category names in projects
+─────────────────────────────────────────────────────────────
+
+BEFORE (not 3NF):
+
+  projects table had these columns:
+  ┌──────────────────┬──────────────┬─────────────────┬─────────────────┐
+  │ id (PK)          │ category     │ category_ar     │ category_en     │
+  ├──────────────────┼──────────────┼─────────────────┼─────────────────┤
+  │ aaa...           │ tech         │ تقنية           │ Technology      │
+  │ bbb...           │ energy       │ طاقة متجددة     │ Renewable Energy │
+  │ ccc...           │ tech         │ تقنية           │ Technology      │ ← duplicate!
+  │ ddd...           │ health       │ صحة             │ Health          │
+  └──────────────────┴──────────────┴─────────────────┴─────────────────┘
+
+  The problem:
+    - category_ar depends on "category", NOT on the project's "id"
+    - category_en depends on "category", NOT on the project's "id"
+    - If we decide to rename "Technology" to "Tech & Software", we must
+      update EVERY project row that has category='tech'
+    - The same Arabic name 'تقنية' is written multiple times (waste + risk)
+
+  This is called a TRANSITIVE DEPENDENCY:
+    id → category → category_ar
+    id → category → category_en
+  The names reach "id" only THROUGH "category". That violates 3NF.
+
+AFTER (3NF fixed):
+
+  We created a new "categories" table:
+  ┌─────────────┬─────────────────┬──────────────────┐
+  │ id (PK)     │ name_ar         │ name_en          │
+  ├─────────────┼─────────────────┼──────────────────┤
+  │ tech        │ تقنية           │ Technology       │  ← stored ONCE
+  │ energy      │ طاقة متجددة     │ Renewable Energy │  ← stored ONCE
+  │ agri        │ زراعة           │ Agriculture      │  ← stored ONCE
+  │ health      │ صحة             │ Health           │  ← stored ONCE
+  │ edu         │ تعليم           │ Education        │  ← stored ONCE
+  │ realestate  │ عقارات          │ Real Estate      │  ← stored ONCE
+  └─────────────┴─────────────────┴──────────────────┘
+
+  Now the projects table only stores the category ID:
+  ┌──────────────────┬──────────────┐
+  │ id (PK)          │ category     │  ← just the code, no names
+  ├──────────────────┼──────────────┤
+  │ aaa...           │ tech         │
+  │ bbb...           │ energy       │
+  │ ccc...           │ tech         │  ← no duplication
+  │ ddd...           │ health       │
+  └──────────────────┴──────────────┘
+
+  To get the name, the view (vw_project_summary) JOINs:
+    SELECT p.category, c.name_ar, c.name_en
+    FROM projects p
+    JOIN categories c ON p.category = c.id;
+
+  Now if the name changes → update ONE row in categories. Done.
+
+
+THE SECOND FIX: notification read state
+────────────────────────────────────────
+
+BEFORE — is_read was a column on the notifications table:
+
+  notifications table:
+  ┌──────────────────┬─────────────────┬────────────────┬─────────┐
+  │ id (PK)          │ target_user_id  │ message_en     │ is_read │
+  ├──────────────────┼─────────────────┼────────────────┼─────────┤
+  │ notif-1          │ ahmed-id        │ "Investment..." │ FALSE   │  ← fine
+  │ notif-2          │ NULL (broadcast)│ "Welcome..."   │ TRUE    │  ← PROBLEM!
+  └──────────────────┴─────────────────┴────────────────┴─────────┘
+
+  notif-2 is a broadcast (target_user_id = NULL) — it goes to ALL users.
+  But there is only ONE is_read flag for the whole row.
+
+  Scenario:
+    Ahmed reads notif-2 → we set is_read = TRUE
+    Sara looks at her notifications → sees notif-2 is already TRUE
+    But Sara never read it! The flag belongs to no one and everyone.
+
+  This is a design flaw, not a classic 3NF violation, but the root
+  cause is the same: a column that can't correctly represent the data
+  because multiple users share the same row.
+
+AFTER — we created a join table (user_notification_reads):
+
+  user_notification_reads:
+  ┌──────────────────┬──────────────────┬─────────────────┬─────────┐
+  │ id (PK)          │ notification_id  │ user_id         │ is_read │
+  ├──────────────────┼──────────────────┼─────────────────┼─────────┤
+  │ r1               │ notif-2          │ ahmed-id        │ TRUE    │  ← Ahmed read it
+  │ r2               │ notif-2          │ sara-id         │ FALSE   │  ← Sara didn't
+  │ r3               │ notif-2          │ omar-id         │ FALSE   │  ← Omar didn't
+  └──────────────────┴──────────────────┴─────────────────┴─────────┘
+
+  Now every user has their own independent is_read flag.
+  Ahmed reading a broadcast doesn't affect Sara.
+
+
+================================================================
+  SUMMARY OF ALL NORMAL FORMS IN OUR DATABASE
+================================================================
+
+  Form  Status    Notes
+  ────  ────────  ──────────────────────────────────────────────
+  1NF   ✓ OK      All cells hold single values
+  2NF   ✓ OK      All PKs are single UUID — partial deps impossible
+  3NF   ✓ Fixed   Removed category_ar/en from projects → categories table
+                  Removed is_read from notifications → user_notification_reads
+
+
+================================================================
+  QUICK REFERENCE: What depends on what (after fixes)
+================================================================
+
+  Table                      Primary Key  Depends On
+  ─────────────────────────  ───────────  ──────────────────────
+  categories                 id           nothing (root lookup)
+  users                      id           nothing (root entity)
+  wallets                    id           users.id
+  projects                   id           users.id, categories.id
+  investments                id           users.id, projects.id
+  payments                   id           users.id, investments.id
+  wallet_transactions        id           wallets.id, users.id
+  notifications              id           users.id (optional)
+  user_notification_reads    id           notifications.id, users.id
+  notification_settings      id           users.id
+  recharge_cards             id           users.id (optional)
+  refresh_tokens             id           users.id
+  otp_codes                  id           (phone only, no FK)
+  password_reset_codes       id           (email only, no FK)
+  media                      id           users.id
+  activity_logs              id           users.id
+
+================================================================

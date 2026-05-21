@@ -15,42 +15,48 @@ import { usersApi } from '@/lib/api/users';
 import { User } from '@/types';
 import { formatDate, formatCurrency, extractError } from '@/lib/utils';
 import {
-  ArrowLeft,
-  Mail,
-  Phone,
-  Building,
-  Calendar,
-  Wallet,
-  TrendingUp,
-  FolderOpen,
-  Shield,
-  Edit,
-  UserX,
-  CheckCircle,
-  Save,
-  AlertTriangle,
+  ArrowLeft, Mail, Phone, Building, Calendar, Wallet, TrendingUp,
+  FolderOpen, Shield, Edit, UserX, CheckCircle, Save, AlertTriangle,
+  FileCheck, FileX, ZoomIn, X, MapPin, Users,
 } from 'lucide-react';
 
 // ── Select options ────────────────────────────────────────────────────────────
 
 const ROLE_OPTIONS = [
   { value: 'investor', label: 'Investor' },
-  { value: 'owner', label: 'Project Owner' },
-  { value: 'admin', label: 'Admin' },
-];
-
-const TYPE_OPTIONS = [
-  { value: 'individual', label: 'Individual' },
-  { value: 'organization', label: 'Organization' },
+  { value: 'owner',    label: 'Project Manager' },
+  { value: 'admin',    label: 'Admin' },
 ];
 
 const STATUS_OPTIONS = [
-  { value: 'active', label: 'Active' },
+  { value: 'active',    label: 'Active' },
   { value: 'suspended', label: 'Suspended' },
-  { value: 'banned', label: 'Banned' },
+  { value: 'banned',    label: 'Banned' },
 ];
 
-// ── Mock fallback used when the API is offline ────────────────────────────────
+const GENDER_OPTIONS = [
+  { value: 'male',   label: 'Male' },
+  { value: 'female', label: 'Female' },
+  { value: 'other',  label: 'Prefer not to say' },
+];
+
+// ── KYC status helpers ────────────────────────────────────────────────────────
+
+const KYC_COLOR: Record<string, string> = {
+  approved: 'bg-success-light text-success border-success/20',
+  rejected: 'bg-danger-light text-danger border-danger/20',
+  pending:  'bg-amber-light text-amber border-amber/20',
+  none:     'bg-background-dark text-text-muted border-border',
+};
+
+const KYC_LABEL: Record<string, string> = {
+  approved: 'Approved',
+  rejected: 'Rejected',
+  pending:  'Pending Review',
+  none:     'Not Submitted',
+};
+
+// ── Mock fallback ─────────────────────────────────────────────────────────────
 
 const MOCK_USER: User = {
   id: 'mock',
@@ -58,7 +64,10 @@ const MOCK_USER: User = {
   email: 'ahmad@example.com',
   phone: '+218 91 1234567',
   role: 'investor',
-  type: 'individual',
+  age: 29,
+  gender: 'male',
+  location: 'Tripoli, Libya',
+  passportUrl: null,
   status: 'active',
   walletBalance: 25000,
   totalTopups: 45000,
@@ -69,10 +78,10 @@ const MOCK_USER: User = {
   bio: 'Tech investor based in Tripoli.',
   createdAt: new Date(Date.now() - 180 * 86400000).toISOString(),
   isVerified: true,
-  kycStatus: 'approved',
+  kycStatus: 'pending',
 };
 
-// ── Reusable label-value row used in info cards ───────────────────────────────
+// ── Reusable label-value row ──────────────────────────────────────────────────
 
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
   return (
@@ -90,23 +99,31 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
 
 export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
+  const router  = useRouter();
 
-  const [user, setUser] = useState<User | null>(null);
+  const [user,    setUser]    = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Edit modal state
-  const [showEdit, setShowEdit] = useState(false);
-  const [editForm, setEditForm] = useState<Partial<User>>({});
+  // Edit modal
+  const [showEdit,   setShowEdit]   = useState(false);
+  const [editForm,   setEditForm]   = useState<Partial<User>>({});
   const [editLoading, setEditLoading] = useState(false);
-  const [editError, setEditError] = useState('');
+  const [editError,   setEditError]   = useState('');
 
-  // Suspend/unsuspend modal state
-  const [showSuspend, setShowSuspend] = useState(false);
+  // Suspend modal
+  const [showSuspend,   setShowSuspend]   = useState(false);
   const [suspendReason, setSuspendReason] = useState('');
   const [suspendLoading, setSuspendLoading] = useState(false);
 
-  // Fetch user on mount; fall back to mock data if API is unavailable
+  // Passport lightbox
+  const [passportOpen, setPassportOpen] = useState(false);
+
+  // KYC actions
+  const [kycAction,  setKycAction]  = useState<'approve' | 'reject' | null>(null);
+  const [rejectNote, setRejectNote] = useState('');
+  const [kycLoading, setKycLoading] = useState(false);
+  const [kycError,   setKycError]   = useState('');
+
   useEffect(() => {
     usersApi.getUserById(id)
       .then(setUser)
@@ -114,24 +131,26 @@ export default function UserDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  // Populate the edit form with current user values
+  // ── Edit helpers ──────────────────────────────────────────────────────────
+
   const openEdit = () => {
     if (!user) return;
     setEditForm({
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      role: user.role,
-      type: user.type,
-      status: user.status,
+      name:        user.name,
+      email:       user.email,
+      phone:       user.phone,
+      role:        user.role,
+      age:         user.age ?? undefined,
+      gender:      user.gender ?? undefined,
+      location:    user.location ?? '',
+      status:      user.status,
       companyName: user.companyName ?? '',
-      bio: user.bio ?? '',
+      bio:         user.bio ?? '',
     });
     setEditError('');
     setShowEdit(true);
   };
 
-  // Save edited user — optimistically update local state if API call fails
   const handleEditSave = async () => {
     if (!user) return;
     setEditLoading(true);
@@ -140,16 +159,16 @@ export default function UserDetailPage() {
       const updated = await usersApi.updateUser(user.id, editForm);
       setUser(updated);
     } catch (err) {
-      // Apply changes locally so the UI stays consistent in mock mode
       setUser((prev) => prev ? { ...prev, ...editForm } : prev);
-      console.warn('API unavailable — changes applied locally:', extractError(err));
+      console.warn('API unavailable — applied locally:', extractError(err));
     } finally {
       setEditLoading(false);
       setShowEdit(false);
     }
   };
 
-  // Toggle suspend / unsuspend — optimistically update status
+  // ── Suspend helpers ───────────────────────────────────────────────────────
+
   const isSuspended = user?.status === 'suspended';
 
   const handleSuspendToggle = async () => {
@@ -163,14 +182,38 @@ export default function UserDetailPage() {
         await usersApi.suspendUser(user.id, suspendReason || undefined);
         setUser((prev) => prev ? { ...prev, status: 'suspended' } : prev);
       }
-    } catch (err) {
-      // Apply locally in mock mode
+    } catch {
       setUser((prev) => prev ? { ...prev, status: isSuspended ? 'active' : 'suspended' } : prev);
-      console.warn('API unavailable — changes applied locally:', extractError(err));
     } finally {
       setSuspendLoading(false);
       setShowSuspend(false);
       setSuspendReason('');
+    }
+  };
+
+  // ── KYC helpers ───────────────────────────────────────────────────────────
+
+  const handleKycAction = async () => {
+    if (!user || !kycAction) return;
+    setKycLoading(true);
+    setKycError('');
+    try {
+      if (kycAction === 'approve') {
+        await usersApi.approveKyc(user.id);
+        setUser((prev) => prev ? { ...prev, kycStatus: 'approved', isVerified: true } : prev);
+      } else {
+        await usersApi.rejectKyc(user.id, rejectNote || undefined);
+        setUser((prev) => prev ? { ...prev, kycStatus: 'rejected' } : prev);
+      }
+    } catch (err) {
+      // Apply locally in mock mode
+      const next = kycAction === 'approve' ? 'approved' : 'rejected';
+      setUser((prev) => prev ? { ...prev, kycStatus: next, isVerified: kycAction === 'approve' } : prev);
+      console.warn('KYC API unavailable — applied locally:', extractError(err));
+    } finally {
+      setKycLoading(false);
+      setKycAction(null);
+      setRejectNote('');
     }
   };
 
@@ -191,12 +234,15 @@ export default function UserDetailPage() {
 
   if (!user) return null;
 
+  const kycStatus = user.kycStatus ?? 'none';
+
   // ── Main render ───────────────────────────────────────────────────────────
 
   return (
     <ProtectedRoute>
       <DashboardLayout title="User Profile">
-        {/* Page header with back link and action buttons */}
+
+        {/* Back + actions header */}
         <div className="mb-6">
           <button
             onClick={() => router.back()}
@@ -224,14 +270,15 @@ export default function UserDetailPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
           {/* ── Left column: profile card ─────────────────────────────────── */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-4">
             <Card>
               <div className="flex flex-col items-center text-center">
                 <Avatar name={user.name} size="xl" />
                 <h2 className="text-lg font-bold text-text-primary mt-3">{user.name}</h2>
                 <p className="text-sm text-text-muted">{user.email}</p>
-                <div className="flex items-center gap-2 mt-3">
+                <div className="flex items-center gap-2 mt-3 flex-wrap justify-center">
                   <RoleBadge role={user.role} />
                   <StatusBadge status={user.status ?? 'active'} />
                 </div>
@@ -241,30 +288,44 @@ export default function UserDetailPage() {
               </div>
 
               <div className="mt-5 pt-5 border-t border-border-light">
-                <InfoRow icon={<Mail size={15} />} label="Email" value={user.email} />
-                <InfoRow icon={<Phone size={15} />} label="Phone" value={user.phone} />
+                <InfoRow icon={<Mail size={15} />}     label="Email"        value={user.email} />
+                <InfoRow icon={<Phone size={15} />}    label="Phone"        value={user.phone} />
+                {user.age && (
+                  <InfoRow icon={<Calendar size={15} />} label="Age"        value={`${user.age} years old`} />
+                )}
+                {user.gender && (
+                  <InfoRow icon={<Users size={15} />}   label="Gender"      value={<span className="capitalize">{user.gender === 'other' ? 'Prefer not to say' : user.gender}</span>} />
+                )}
+                {user.location && (
+                  <InfoRow icon={<MapPin size={15} />}  label="Location"    value={user.location} />
+                )}
                 {user.companyName && (
-                  <InfoRow icon={<Building size={15} />} label="Company" value={user.companyName} />
+                  <InfoRow icon={<Building size={15} />} label="Company"    value={user.companyName} />
                 )}
                 <InfoRow icon={<Calendar size={15} />} label="Member Since" value={formatDate(user.createdAt)} />
-                <InfoRow
-                  icon={<Shield size={15} />}
-                  label="KYC Status"
-                  value={<StatusBadge status={user.kycStatus ?? 'none'} />}
-                />
               </div>
+            </Card>
+
+            {/* ── Account Details ──────────────────────────────────────────── */}
+            <Card>
+              <CardHeader title="Account Details" />
+              <InfoRow icon={<Shield size={15} />} label="User ID"    value={<span className="font-mono text-xs">{user.id}</span>} />
+              <InfoRow icon={<Shield size={15} />} label="Member ID"  value={user.memberId ?? '—'} />
+              <InfoRow icon={<Shield size={15} />} label="Verified"   value={user.isVerified ? '✓ Verified' : '✗ Not Verified'} />
+              <InfoRow icon={<Shield size={15} />} label="Top-ups"    value={formatCurrency(user.totalTopups ?? 0)} />
             </Card>
           </div>
 
-          {/* ── Right column: stats and account details ───────────────────── */}
+          {/* ── Right column ──────────────────────────────────────────────── */}
           <div className="lg:col-span-2 space-y-4">
-            {/* Financial stat cards */}
+
+            {/* Financial stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { icon: <Wallet size={18} />, label: 'Wallet Balance', value: formatCurrency(user.walletBalance ?? 0), color: 'text-primary' },
-                { icon: <TrendingUp size={18} />, label: 'Total Invested', value: formatCurrency(user.contributionTotal ?? 0), color: 'text-teal' },
-                { icon: <TrendingUp size={18} />, label: 'Investments', value: `${user.contributionsCount ?? 0}`, color: 'text-amber' },
-                { icon: <FolderOpen size={18} />, label: 'Projects', value: `${user.projectsCount ?? 0}`, color: 'text-danger' },
+                { icon: <Wallet size={18} />,    label: 'Wallet Balance', value: formatCurrency(user.walletBalance ?? 0),    color: 'text-primary' },
+                { icon: <TrendingUp size={18} />, label: 'Total Invested', value: formatCurrency(user.contributionTotal ?? 0), color: 'text-teal'    },
+                { icon: <TrendingUp size={18} />, label: 'Investments',    value: `${user.contributionsCount ?? 0}`,           color: 'text-amber'   },
+                { icon: <FolderOpen size={18} />, label: 'Projects',       value: `${user.projectsCount ?? 0}`,                color: 'text-danger'  },
               ].map((stat) => (
                 <Card key={stat.label} padding="sm">
                   <div className={`${stat.color} mb-2`}>{stat.icon}</div>
@@ -274,19 +335,207 @@ export default function UserDetailPage() {
               ))}
             </div>
 
-            {/* Account metadata */}
+            {/* ── KYC / Identity Verification card ─────────────────────────── */}
             <Card>
-              <CardHeader title="Account Details" />
-              <div className="grid grid-cols-2 gap-x-6">
-                <InfoRow icon={<Shield size={15} />} label="User ID" value={<span className="font-mono text-xs">{user.id}</span>} />
-                <InfoRow icon={<Shield size={15} />} label="Member ID" value={user.memberId ?? '-'} />
-                <InfoRow icon={<Shield size={15} />} label="Account Type" value={<span className="capitalize">{user.type}</span>} />
-                <InfoRow icon={<Shield size={15} />} label="Verified" value={user.isVerified ? '✓ Verified' : '✗ Not Verified'} />
-                <InfoRow icon={<Shield size={15} />} label="Total Top-ups" value={formatCurrency(user.totalTopups ?? 0)} />
+              <div className="flex items-center justify-between mb-4">
+                <CardHeader title="Identity Verification (KYC)" />
+                {/* KYC status pill */}
+                <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border ${KYC_COLOR[kycStatus]}`}>
+                  {kycStatus === 'approved' && <CheckCircle size={12} />}
+                  {kycStatus === 'rejected' && <X size={12} />}
+                  {KYC_LABEL[kycStatus]}
+                </span>
               </div>
+
+              {user.passportUrl ? (
+                <>
+                  {/* Passport image preview */}
+                  <div className="relative group cursor-pointer rounded-xl overflow-hidden border border-border-light mb-4"
+                    onClick={() => setPassportOpen(true)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={user.passportUrl}
+                      alt="Passport"
+                      className="w-full h-56 object-cover"
+                    />
+                    {/* Zoom overlay on hover */}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <div className="flex items-center gap-2 text-white font-medium text-sm">
+                        <ZoomIn size={20} />
+                        Click to enlarge
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Info row */}
+                  <div className="flex items-start gap-3 p-3 bg-background-dark rounded-xl border border-border-light mb-4">
+                    <Shield size={16} className="text-text-muted mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-text-secondary leading-relaxed">
+                      The image above is the user&apos;s passport. Verify the photo matches the user&apos;s name, and that the document appears genuine before approving.
+                    </p>
+                  </div>
+
+                  {/* Approve / Reject actions — only shown when not already decided */}
+                  {kycStatus !== 'approved' && kycStatus !== 'rejected' ? (
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setKycAction('approve')}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-success hover:bg-success/90 transition-colors"
+                      >
+                        <FileCheck size={16} />
+                        Approve Identity
+                      </button>
+                      <button
+                        onClick={() => setKycAction('reject')}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-danger hover:bg-danger/90 transition-colors"
+                      >
+                        <FileX size={16} />
+                        Reject
+                      </button>
+                    </div>
+                  ) : (
+                    /* Already decided — show re-review option */
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-text-muted">
+                        {kycStatus === 'approved'
+                          ? 'Identity verified — user is approved to use the platform.'
+                          : 'Identity rejected — user cannot invest or submit projects.'}
+                      </p>
+                      <button
+                        onClick={() => setKycAction(kycStatus === 'approved' ? 'reject' : 'approve')}
+                        className="text-xs text-primary underline hover:no-underline ml-3 flex-shrink-0"
+                      >
+                        {kycStatus === 'approved' ? 'Revoke' : 'Approve instead'}
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* No passport uploaded yet */
+                <div className="flex flex-col items-center py-10 text-center">
+                  <div className="w-16 h-16 rounded-full bg-background-dark flex items-center justify-center mb-3">
+                    <Shield size={28} className="text-text-muted" />
+                  </div>
+                  <p className="text-sm font-medium text-text-primary mb-1">No passport uploaded</p>
+                  <p className="text-xs text-text-muted">
+                    This user has not submitted a passport yet. They must upload one via the app before KYC can be reviewed.
+                  </p>
+                </div>
+              )}
             </Card>
+
           </div>
         </div>
+
+        {/* ── Passport lightbox (full-size viewer) ─────────────────────────── */}
+        {passportOpen && user.passportUrl && (
+          <div
+            className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4"
+            onClick={() => setPassportOpen(false)}
+          >
+            <div className="relative max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setPassportOpen(false)}
+                className="absolute -top-10 right-0 text-white/80 hover:text-white flex items-center gap-1 text-sm"
+              >
+                <X size={18} /> Close
+              </button>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={user.passportUrl}
+                alt="Passport full view"
+                className="w-full rounded-xl shadow-2xl object-contain max-h-[80vh]"
+              />
+              <p className="text-center text-xs text-white/60 mt-3">
+                Passport — {user.name}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── KYC Approve / Reject confirmation modal ───────────────────────── */}
+        <Modal
+          isOpen={!!kycAction}
+          onClose={() => { setKycAction(null); setRejectNote(''); setKycError(''); }}
+          title={kycAction === 'approve' ? 'Approve Identity' : 'Reject Identity'}
+          size="sm"
+          footer={
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setKycAction(null); setRejectNote(''); }}
+                className="px-4 py-2 text-sm font-medium text-text-secondary bg-background-dark rounded-xl hover:bg-border transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleKycAction}
+                disabled={kycLoading}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-xl transition-colors disabled:opacity-50 ${
+                  kycAction === 'approve'
+                    ? 'bg-success hover:bg-success/90'
+                    : 'bg-danger hover:bg-danger/90'
+                }`}
+              >
+                {kycAction === 'approve' ? <FileCheck size={14} /> : <FileX size={14} />}
+                {kycLoading
+                  ? 'Processing...'
+                  : kycAction === 'approve'
+                  ? 'Confirm Approval'
+                  : 'Confirm Rejection'}
+              </button>
+            </div>
+          }
+        >
+          <div className="space-y-4">
+            {kycError && (
+              <div className="bg-danger-light border border-danger/20 rounded-xl px-3 py-2 text-sm text-danger">
+                {kycError}
+              </div>
+            )}
+
+            {/* Passport thumbnail in the modal */}
+            {user.passportUrl && (
+              <div className="rounded-xl overflow-hidden border border-border-light">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={user.passportUrl}
+                  alt="Passport"
+                  className="w-full h-36 object-cover"
+                />
+              </div>
+            )}
+
+            <div className={`flex items-start gap-3 p-3 rounded-xl border ${
+              kycAction === 'approve'
+                ? 'bg-success-light border-success/20'
+                : 'bg-danger-light border-danger/20'
+            }`}>
+              <AlertTriangle size={17} className={`flex-shrink-0 mt-0.5 ${kycAction === 'approve' ? 'text-success' : 'text-danger'}`} />
+              <p className="text-sm text-text-secondary">
+                {kycAction === 'approve'
+                  ? `Approving ${user.name}'s identity will mark them as verified and allow full platform access.`
+                  : `Rejecting ${user.name}'s identity will block them from investing or submitting projects.`}
+              </p>
+            </div>
+
+            {/* Rejection reason — only shown when rejecting */}
+            {kycAction === 'reject' && (
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-1.5">
+                  Reason for rejection <span className="text-text-muted font-normal">(shown to user)</span>
+                </label>
+                <textarea
+                  value={rejectNote}
+                  onChange={(e) => setRejectNote(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Passport image is blurry, document expired, name does not match..."
+                  className="w-full rounded-xl border border-border bg-surface text-text-primary text-sm placeholder:text-text-muted outline-none transition-all focus:ring-2 focus:ring-danger/20 focus:border-danger px-3 py-2.5 resize-none"
+                />
+              </div>
+            )}
+          </div>
+        </Modal>
 
         {/* ── Edit User Modal ───────────────────────────────────────────────── */}
         <Modal
@@ -339,6 +588,21 @@ export default function UserDetailPage() {
               placeholder="+218 91 1234567"
             />
             <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Age"
+                type="number"
+                value={editForm.age != null ? String(editForm.age) : ''}
+                onChange={(e) => setEditForm((f) => ({ ...f, age: e.target.value ? Number(e.target.value) : undefined }))}
+                placeholder="18–100"
+              />
+              <Input
+                label="Location / Country"
+                value={(editForm.location as string) ?? ''}
+                onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))}
+                placeholder="City, Country"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-text-primary mb-1.5">Role</label>
                 <Select
@@ -348,27 +612,27 @@ export default function UserDetailPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-1.5">Status</label>
+                <label className="block text-sm font-medium text-text-primary mb-1.5">Gender</label>
                 <Select
-                  options={STATUS_OPTIONS}
-                  value={editForm.status ?? 'active'}
-                  onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value as User['status'] }))}
+                  options={GENDER_OPTIONS}
+                  value={(editForm.gender as string) ?? ''}
+                  onChange={(e) => setEditForm((f) => ({ ...f, gender: e.target.value as User['gender'] }))}
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">Account Type</label>
+              <label className="block text-sm font-medium text-text-primary mb-1.5">Status</label>
               <Select
-                options={TYPE_OPTIONS}
-                value={editForm.type ?? 'individual'}
-                onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value as User['type'] }))}
+                options={STATUS_OPTIONS}
+                value={editForm.status ?? 'active'}
+                onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value as User['status'] }))}
               />
             </div>
             <Input
               label="Company Name (optional)"
               value={(editForm.companyName as string) ?? ''}
               onChange={(e) => setEditForm((f) => ({ ...f, companyName: e.target.value }))}
-              placeholder="Company or organization name"
+              placeholder="Company or project name"
             />
             <div>
               <label className="block text-sm font-medium text-text-primary mb-1.5">Bio</label>
@@ -383,7 +647,7 @@ export default function UserDetailPage() {
           </div>
         </Modal>
 
-        {/* ── Suspend / Unsuspend Confirmation Modal ────────────────────────── */}
+        {/* ── Suspend / Unsuspend Modal ─────────────────────────────────────── */}
         <Modal
           isOpen={showSuspend}
           onClose={() => setShowSuspend(false)}
@@ -405,27 +669,20 @@ export default function UserDetailPage() {
                 }`}
               >
                 {isSuspended ? <CheckCircle size={14} /> : <UserX size={14} />}
-                {suspendLoading
-                  ? 'Processing...'
-                  : isSuspended
-                  ? 'Confirm Unsuspend'
-                  : 'Confirm Suspend'}
+                {suspendLoading ? 'Processing...' : isSuspended ? 'Confirm Unsuspend' : 'Confirm Suspend'}
               </button>
             </div>
           }
         >
           <div className="space-y-4">
-            {/* Warning banner */}
             <div className="flex items-start gap-3 p-3 bg-amber-light rounded-xl border border-amber/20">
               <AlertTriangle size={18} className="text-amber flex-shrink-0 mt-0.5" />
               <p className="text-sm text-text-secondary">
                 {isSuspended
-                  ? `Unsuspending ${user.name} will restore their access to the platform.`
+                  ? `Unsuspending ${user.name} will restore their platform access.`
                   : `Suspending ${user.name} will temporarily block their access. You can unsuspend them later.`}
               </p>
             </div>
-
-            {/* Reason textarea — only shown when suspending */}
             {!isSuspended && (
               <div>
                 <label className="block text-sm font-medium text-text-primary mb-1.5">
@@ -442,6 +699,7 @@ export default function UserDetailPage() {
             )}
           </div>
         </Modal>
+
       </DashboardLayout>
     </ProtectedRoute>
   );

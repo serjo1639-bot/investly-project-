@@ -22,7 +22,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { COLORS, FONTS, SPACING, RADIUS, SHADOWS, responsiveHeight } from '../constants/theme';
+import { COLORS, FONTS, SPACING, RADIUS, SHADOWS, GRADIENTS, responsiveHeight } from '../constants/theme';
 import { projectsAPI, resolveProjectImage } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import AppHeader from './AppHeader';
@@ -125,6 +125,8 @@ const AnnouncementCard = ({ item, cardWidth, isAr, onPress }) => {
 };
 
 // ─── Project list card ────────────────────────────────────────────────────────
+// Modern fintech card: image hero (top) + clean white info panel (bottom).
+// Much more readable than a full dark overlay — investors can scan quickly.
 const ProjectCard = ({ project, onPress }) => {
   const { i18n } = useTranslation();
   const isAr   = i18n.language === 'ar';
@@ -133,65 +135,79 @@ const ProjectCard = ({ project, onPress }) => {
   const catLbl = isAr ? project.categoryAr : project.categoryEn;
   const owner  = project.ownerCompanyName || project.ownerName || project.founderName;
   const pct    = project.goal > 0 ? Math.min(100, Math.round((project.raised / project.goal) * 100)) : 0;
+  const minInv = Number(project.minInvestment || 5).toLocaleString();
   const imgSrc = resolveProjectImage(project.image);
 
   return (
     <TouchableOpacity style={styles.listCard} onPress={onPress} activeOpacity={0.88}>
-      <Image source={imgSrc} style={styles.listCardBg} resizeMode="cover" />
-      <LinearGradient
-        colors={['rgba(0,0,0,0.0)', 'rgba(8,12,46,0.65)', 'rgba(5,8,35,0.98)']}
-        locations={[0.15, 0.52, 1]}
-        style={styles.listGrad}
-      >
+
+      {/* ── Image hero ── */}
+      <View style={styles.listImgWrap}>
+        <Image source={imgSrc} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <LinearGradient
+          colors={['transparent', 'rgba(8,12,46,0.50)']}
+          style={StyleSheet.absoluteFill}
+        />
+
+        {/* Category badge — top leading corner */}
         {catLbl ? (
-          <View style={[styles.listCatBadge, { alignSelf: isAr ? 'flex-end' : 'flex-start' }]}>
+          <View style={[styles.listCatBadge, isAr ? { right: SPACING.md } : { left: SPACING.md }]}>
             <Text style={styles.listCatBadgeTxt}>{catLbl}</Text>
           </View>
         ) : null}
 
+        {/* Funding % badge — top trailing corner */}
+        <View style={[styles.listPctBadge, isAr ? { left: SPACING.md } : { right: SPACING.md }]}>
+          <Text style={styles.listPctBadgeTxt}>{pct}%</Text>
+          <Text style={styles.listPctBadgeSub}>{isAr ? 'مُموَّل' : 'funded'}</Text>
+        </View>
+      </View>
+
+      {/* ── White info panel ── */}
+      <View style={styles.listInfo}>
+        {/* Title */}
+        <Text style={[styles.listTitle, { textAlign: isAr ? 'right' : 'left' }]} numberOfLines={2}>
+          {title}
+        </Text>
+
+        {/* Owner */}
         {owner ? (
           <Text style={[styles.listOwner, { textAlign: isAr ? 'right' : 'left' }]} numberOfLines={1}>
             {owner}
           </Text>
         ) : null}
 
-        <Text style={[styles.listTitle, { textAlign: isAr ? 'right' : 'left' }]} numberOfLines={2}>
-          {title}
-        </Text>
-
-        <View style={[styles.pillRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
-          <View style={styles.pill}>
-            <Ionicons name="location-outline" size={11} color="rgba(255,255,255,0.9)" />
-            <Text style={styles.pillTxt}>{city}</Text>
+        {/* Stats row */}
+        <View style={[styles.listStatsRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
+          <View style={styles.listStat}>
+            <Ionicons name="location-outline" size={12} color={COLORS.textMuted} />
+            <Text style={styles.listStatTxt}>{city}</Text>
           </View>
-          <View style={styles.pill}>
-            <Ionicons name="eye-outline" size={11} color="rgba(255,255,255,0.9)" />
-            <Text style={styles.pillTxt}>{project.viewsCount || 0}</Text>
+          <View style={styles.listStatDivider} />
+          <View style={styles.listStat}>
+            <Ionicons name="people-outline" size={12} color={COLORS.textMuted} />
+            <Text style={styles.listStatTxt}>{project.investorsCount || 0}</Text>
           </View>
-          <View style={styles.pill}>
-            <Ionicons name="people-outline" size={11} color="rgba(255,255,255,0.9)" />
-            <Text style={styles.pillTxt}>{project.investorsCount || 0}</Text>
+          <View style={styles.listStatDivider} />
+          {/* Min investment in brand colour — helps investors scan quickly */}
+          <View style={styles.listStat}>
+            <Ionicons name="wallet-outline" size={12} color={COLORS.primary} />
+            <Text style={[styles.listStatTxt, { color: COLORS.primary, fontWeight: FONTS.semibold }]}>
+              {minInv} LYD
+            </Text>
           </View>
         </View>
 
+        {/* Progress bar */}
         <View style={styles.listBarBg}>
           <LinearGradient
-            colors={['#00B4A0', '#4361EE']}
+            colors={GRADIENTS.accent}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={[styles.listBarFill, { width: `${pct}%` }]}
           />
         </View>
-
-        <View style={[styles.listPctRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
-          <Text style={styles.listPct}>{pct}% {isAr ? 'مُموَّل' : 'funded'}</Text>
-          <Ionicons
-            name={isAr ? 'chevron-back' : 'chevron-forward'}
-            size={14}
-            color="rgba(255,255,255,0.6)"
-          />
-        </View>
-      </LinearGradient>
+      </View>
     </TouchableOpacity>
   );
 };
@@ -510,43 +526,76 @@ const styles = StyleSheet.create({
   sectionLink:  { fontSize: FONTS.sm, fontWeight: FONTS.semibold, color: COLORS.primary },
 
   // ── Project list cards ────────────────────────────────────────────────────
+  // Card uses a two-layer design: image-hero on top, white info panel below.
   listCard: {
     marginHorizontal: SPACING.base,
     marginBottom: SPACING.base,
-    borderRadius: 26,
+    borderRadius: 22,
+    backgroundColor: COLORS.surface,
     overflow: 'hidden',
-    height: responsiveHeight(230, { min: 200, max: 255 }),
-    backgroundColor: COLORS.backgroundDark,
     ...SHADOWS.md,
   },
-  listCardBg: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    width: '100%', height: '100%',
+  listImgWrap: {
+    height: responsiveHeight(150, { min: 130, max: 170 }),
+    overflow: 'hidden',
   },
-  listGrad: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    paddingHorizontal: SPACING.base,
-    paddingTop: SPACING.xxl, paddingBottom: SPACING.sm,
-    gap: 5,
-  },
-  listCatBadge: {
-    backgroundColor: 'rgba(67,97,238,0.7)',
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.sm, paddingVertical: 3,
-    marginBottom: 2,
-  },
-  listCatBadgeTxt: { fontSize: 10, fontWeight: FONTS.bold, color: COLORS.white },
-  listOwner:       { fontSize: FONTS.xs, color: 'rgba(255,255,255,0.65)', fontWeight: FONTS.medium },
-  listTitle:       { fontSize: FONTS.base, fontWeight: FONTS.bold, color: COLORS.white, lineHeight: FONTS.base * 1.38 },
 
-  listBarBg:   { height: 3, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: RADIUS.full, overflow: 'hidden' },
+  // Category badge (top leading corner of image)
+  listCatBadge: {
+    position: 'absolute',
+    top: SPACING.md,
+    backgroundColor: 'rgba(67,97,238,0.82)',
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm, paddingVertical: 4,
+    backdropFilter: 'blur(4px)',
+  },
+  listCatBadgeTxt: { fontSize: 10, fontWeight: FONTS.bold, color: COLORS.white, letterSpacing: 0.3 },
+
+  // Funding % badge (top trailing corner of image)
+  listPctBadge: {
+    position: 'absolute',
+    top: SPACING.md,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: RADIUS.base,
+    paddingHorizontal: SPACING.sm, paddingVertical: 4,
+    alignItems: 'center',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+  },
+  listPctBadgeTxt: { fontSize: FONTS.sm, fontWeight: FONTS.bold, color: COLORS.white, lineHeight: 16 },
+  listPctBadgeSub: { fontSize: 9, color: 'rgba(255,255,255,0.75)', lineHeight: 12 },
+
+  // White info section below the image
+  listInfo: {
+    padding: SPACING.base,
+    gap: SPACING.xs,
+  },
+  listTitle: {
+    fontSize: FONTS.base, fontWeight: FONTS.bold,
+    color: COLORS.textPrimary, lineHeight: FONTS.base * 1.38,
+  },
+  listOwner: {
+    fontSize: FONTS.xs, color: COLORS.textMuted, fontWeight: FONTS.medium,
+  },
+  listStatsRow: {
+    alignItems: 'center', gap: SPACING.sm, marginTop: 2,
+  },
+  listStat: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+  },
+  listStatTxt: {
+    fontSize: FONTS.xs, color: COLORS.textSecondary,
+  },
+  listStatDivider: {
+    width: 1, height: 12, backgroundColor: COLORS.borderLight,
+  },
+
+  listBarBg: {
+    height: 4, backgroundColor: COLORS.borderLight,
+    borderRadius: RADIUS.full, overflow: 'hidden', marginTop: 4,
+  },
   listBarFill: { height: '100%', borderRadius: RADIUS.full },
 
-  listPctRow: { alignItems: 'center', justifyContent: 'space-between' },
-  listPct:    { fontSize: FONTS.xs, color: 'rgba(255,255,255,0.75)', fontWeight: FONTS.semibold },
-
-  // ── Shared pills ──────────────────────────────────────────────────────────
+  // ── Shared pills (kept for banner CTA area) ───────────────────────────────
   pillRow: { flexWrap: 'wrap', gap: 6 },
   pill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,

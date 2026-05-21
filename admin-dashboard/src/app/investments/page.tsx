@@ -120,7 +120,7 @@ export default function InvestmentsPage() {
       key: 'amount',
       header: 'Amount',
       render: (inv: Investment) => (
-        <span className="text-sm font-semibold text-text-primary">{formatCurrency(inv.amount, inv.currency)}</span>
+        <span className="text-sm font-semibold text-text-primary">{formatCurrency(inv.amount)}</span>
       ),
     },
     {

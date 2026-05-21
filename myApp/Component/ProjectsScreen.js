@@ -16,10 +16,12 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { COLORS, FONTS, SPACING, RADIUS, SHADOWS, responsiveHeight } from '../constants/theme';
+import { COLORS, FONTS, SPACING, RADIUS, SHADOWS, GRADIENTS, responsiveHeight } from '../constants/theme';
 import { projectsAPI, resolveProjectImage } from '../services/api';
 import AppHeader from './AppHeader';
 
+// ProjectCard uses the same image-top + white-info-bottom design as HomeScreen
+// for a consistent look across the full project listing.
 const ProjectCard = ({ project, onPress }) => {
   const { i18n } = useTranslation();
   const isAr   = i18n.language === 'ar';
@@ -28,58 +30,65 @@ const ProjectCard = ({ project, onPress }) => {
   const catLbl = isAr ? project.categoryAr : project.categoryEn;
   const owner  = project.ownerCompanyName || project.ownerName || project.founderName;
   const pct    = project.goal > 0 ? Math.min(100, Math.round((project.raised / project.goal) * 100)) : 0;
+  const minInv = Number(project.minInvestment || 5).toLocaleString();
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.88}>
-      <Image source={resolveProjectImage(project.image)} style={StyleSheet.absoluteFill} resizeMode="cover" />
-      <LinearGradient
-        colors={['rgba(0,0,0,0.0)', 'rgba(8,12,46,0.65)', 'rgba(5,8,35,0.98)']}
-        locations={[0.2, 0.55, 1]}
-        style={styles.cardGrad}
-      >
-        {/* Category badge */}
+      {/* Image hero */}
+      <View style={styles.cardImgWrap}>
+        <Image source={resolveProjectImage(project.image)} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <LinearGradient colors={['transparent', 'rgba(8,12,46,0.45)']} style={StyleSheet.absoluteFill} />
+
         {catLbl ? (
-          <View style={[styles.cardCatBadge, { alignSelf: isAr ? 'flex-end' : 'flex-start' }]}>
+          <View style={[styles.cardCatBadge, isAr ? { right: SPACING.md } : { left: SPACING.md }]}>
             <Text style={styles.cardCatTxt}>{catLbl}</Text>
           </View>
         ) : null}
 
+        <View style={[styles.cardPctBadge, isAr ? { left: SPACING.md } : { right: SPACING.md }]}>
+          <Text style={styles.cardPctBadgeTxt}>{pct}%</Text>
+          <Text style={styles.cardPctBadgeSub}>{isAr ? 'مُموَّل' : 'funded'}</Text>
+        </View>
+      </View>
+
+      {/* White info panel */}
+      <View style={styles.cardInfo}>
+        <Text style={[styles.cardTitle, { textAlign: isAr ? 'right' : 'left' }]} numberOfLines={2}>
+          {title}
+        </Text>
         {owner ? (
-          <Text style={[styles.cardOwner, { textAlign: isAr ? 'right' : 'left' }]} numberOfLines={1}>{owner}</Text>
+          <Text style={[styles.cardOwner, { textAlign: isAr ? 'right' : 'left' }]} numberOfLines={1}>
+            {owner}
+          </Text>
         ) : null}
 
-        <Text style={[styles.cardTitle, { textAlign: isAr ? 'right' : 'left' }]} numberOfLines={2}>{title}</Text>
-
-        <View style={[styles.pillRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
-          <View style={styles.pill}>
-            <Ionicons name="location-outline" size={11} color="rgba(255,255,255,0.9)" />
-            <Text style={styles.pillTxt}>{city}</Text>
+        <View style={[styles.cardStatsRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
+          <View style={styles.cardStat}>
+            <Ionicons name="location-outline" size={12} color={COLORS.textMuted} />
+            <Text style={styles.cardStatTxt}>{city}</Text>
           </View>
-          <View style={styles.pill}>
-            <Ionicons name="people-outline" size={11} color="rgba(255,255,255,0.9)" />
-            <Text style={styles.pillTxt}>{project.investorsCount || 0}</Text>
+          <View style={styles.cardStatDivider} />
+          <View style={styles.cardStat}>
+            <Ionicons name="people-outline" size={12} color={COLORS.textMuted} />
+            <Text style={styles.cardStatTxt}>{project.investorsCount || 0}</Text>
           </View>
-          <View style={styles.pill}>
-            <Ionicons name="eye-outline" size={11} color="rgba(255,255,255,0.9)" />
-            <Text style={styles.pillTxt}>{project.viewsCount || 0}</Text>
+          <View style={styles.cardStatDivider} />
+          <View style={styles.cardStat}>
+            <Ionicons name="wallet-outline" size={12} color={COLORS.primary} />
+            <Text style={[styles.cardStatTxt, { color: COLORS.primary, fontWeight: FONTS.semibold }]}>
+              {minInv} LYD
+            </Text>
           </View>
         </View>
 
-        {/* Colored gradient progress bar */}
         <View style={styles.barBg}>
           <LinearGradient
-            colors={['#00B4A0', '#4361EE']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+            colors={GRADIENTS.accent}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
             style={[styles.barFill, { width: `${pct}%` }]}
           />
         </View>
-
-        <View style={[styles.pctRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
-          <Text style={styles.pctTxt}>{pct}% {isAr ? 'مُموَّل' : 'funded'}</Text>
-          <Ionicons name={isAr ? 'chevron-back' : 'chevron-forward'} size={14} color="rgba(255,255,255,0.55)" />
-        </View>
-      </LinearGradient>
+      </View>
     </TouchableOpacity>
   );
 };
@@ -139,46 +148,47 @@ const styles = StyleSheet.create({
   list:      { padding: SPACING.base, gap: SPACING.base, paddingBottom: SPACING.xl },
 
   card: {
-    borderRadius: 26,
+    borderRadius: 22,
+    backgroundColor: COLORS.surface,
     overflow: 'hidden',
-    height: responsiveHeight(240, { min: 210, max: 265 }),
     ...SHADOWS.md,
   },
-  cardGrad: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    paddingHorizontal: SPACING.base,
-    paddingTop: SPACING.xxl, paddingBottom: SPACING.sm,
-    gap: 5,
+  cardImgWrap: {
+    height: responsiveHeight(155, { min: 130, max: 175 }),
+    overflow: 'hidden',
   },
-
-  // Category badge
   cardCatBadge: {
-    backgroundColor: 'rgba(67,97,238,0.72)',
+    position: 'absolute', top: SPACING.md,
+    backgroundColor: 'rgba(67,97,238,0.82)',
     borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.sm, paddingVertical: 3,
-    marginBottom: 2,
+    paddingHorizontal: SPACING.sm, paddingVertical: 4,
   },
   cardCatTxt: { fontSize: 10, fontWeight: FONTS.bold, color: COLORS.white },
 
-  cardOwner: { fontSize: FONTS.xs, color: 'rgba(255,255,255,0.65)', fontWeight: FONTS.medium },
-  cardTitle: { fontSize: FONTS.base, fontWeight: FONTS.bold, color: COLORS.white, lineHeight: FONTS.base * 1.38 },
-
-  pillRow: { flexWrap: 'wrap', gap: 6 },
-  pill: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.sm, paddingVertical: 5,
+  cardPctBadge: {
+    position: 'absolute', top: SPACING.md,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: RADIUS.base,
+    paddingHorizontal: SPACING.sm, paddingVertical: 4,
+    alignItems: 'center',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
   },
-  pillTxt: { fontSize: FONTS.xs, color: 'rgba(255,255,255,0.95)', fontWeight: FONTS.medium },
+  cardPctBadgeTxt: { fontSize: FONTS.sm, fontWeight: FONTS.bold, color: COLORS.white, lineHeight: 16 },
+  cardPctBadgeSub: { fontSize: 9, color: 'rgba(255,255,255,0.75)', lineHeight: 12 },
 
-  // Colored gradient progress bar
-  barBg:   { height: 3, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: RADIUS.full, overflow: 'hidden' },
+  cardInfo: { padding: SPACING.base, gap: SPACING.xs },
+  cardTitle: {
+    fontSize: FONTS.base, fontWeight: FONTS.bold,
+    color: COLORS.textPrimary, lineHeight: FONTS.base * 1.38,
+  },
+  cardOwner: { fontSize: FONTS.xs, color: COLORS.textMuted, fontWeight: FONTS.medium },
+  cardStatsRow: { alignItems: 'center', gap: SPACING.sm, marginTop: 2 },
+  cardStat: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  cardStatTxt: { fontSize: FONTS.xs, color: COLORS.textSecondary },
+  cardStatDivider: { width: 1, height: 12, backgroundColor: COLORS.borderLight },
+
+  barBg:   { height: 4, backgroundColor: COLORS.borderLight, borderRadius: RADIUS.full, overflow: 'hidden', marginTop: 4 },
   barFill: { height: '100%', borderRadius: RADIUS.full },
-
-  pctRow: { alignItems: 'center', justifyContent: 'space-between', marginTop: 1 },
-  pctTxt: { fontSize: FONTS.xs, color: 'rgba(255,255,255,0.72)', fontWeight: FONTS.semibold },
 
   empty:      { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: SPACING.xxl },
   emptyTitle: { fontSize: FONTS.lg, fontWeight: FONTS.bold, color: COLORS.textPrimary, marginTop: SPACING.base },

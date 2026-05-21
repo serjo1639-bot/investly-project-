@@ -1,3 +1,15 @@
+/**
+ * Mock API adapter — used in development when no real backend is running.
+ *
+ * How it works:
+ *  1. Every HTTP request made by apiClient is intercepted by this function.
+ *  2. Instead of hitting the network, it matches the URL/method against the
+ *     conditions below and returns hard-coded fake data.
+ *  3. This lets the frontend be developed and tested without a live server.
+ *
+ * To switch to the real backend, set NEXT_PUBLIC_USE_MOCK=false in .env.local.
+ */
+
 import { InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 
 const MOCK_ADMIN: Record<string, unknown> = {
@@ -6,7 +18,10 @@ const MOCK_ADMIN: Record<string, unknown> = {
   phone: '+218911000001',
   email: 'admin@investly.ly',
   role: 'admin',
-  type: 'individual',
+  age: 35,
+  gender: 'male',
+  location: 'Tripoli, Libya',
+  passportUrl: null,
   status: 'active',
   isVerified: true,
   kycStatus: 'approved',
@@ -21,10 +36,10 @@ const MOCK_SESSION = {
 };
 
 const MOCK_USERS = [
-  { id: 'u1', name: 'Ahmed Ali', phone: '+218911111111', email: 'ahmed@test.ly', role: 'investor', type: 'individual', status: 'active', isVerified: true, kycStatus: 'approved', walletBalance: 5000, contributionTotal: 7500, contributionsCount: 3, createdAt: '2024-03-15T10:00:00Z' },
-  { id: 'u2', name: 'Fatima Hassan', phone: '+218922222222', email: 'fatima@test.ly', role: 'owner', type: 'organization', status: 'active', isVerified: true, kycStatus: 'approved', companyName: 'Tech Ventures Ltd', projectsCount: 3, createdAt: '2024-04-20T10:00:00Z' },
-  { id: 'u3', name: 'Omar Mansour', phone: '+218933333333', email: 'omar@test.ly', role: 'investor', type: 'individual', status: 'pending', isVerified: false, kycStatus: 'pending', walletBalance: 0, createdAt: '2024-05-01T10:00:00Z' },
-  { id: 'u4', name: 'Sara Khalil', phone: '+218944444444', email: 'sara@test.ly', role: 'investor', type: 'individual', status: 'suspended', isVerified: true, kycStatus: 'approved', walletBalance: 2500, contributionTotal: 11000, contributionsCount: 2, createdAt: '2024-02-10T10:00:00Z' },
+  { id: 'u1', name: 'Ahmed Ali', phone: '+218911111111', email: 'ahmed@test.ly', role: 'investor', age: 29, gender: 'male', location: 'Tripoli, Libya', passportUrl: null, status: 'active', isVerified: true, kycStatus: 'approved', walletBalance: 5000, contributionTotal: 7500, contributionsCount: 3, createdAt: '2024-03-15T10:00:00Z' },
+  { id: 'u2', name: 'Fatima Hassan', phone: '+218922222222', email: 'fatima@test.ly', role: 'owner', age: 34, gender: 'female', location: 'Benghazi, Libya', passportUrl: null, status: 'active', isVerified: true, kycStatus: 'approved', companyName: 'Tech Ventures Ltd', projectsCount: 3, createdAt: '2024-04-20T10:00:00Z' },
+  { id: 'u3', name: 'Omar Mansour', phone: '+218933333333', email: 'omar@test.ly', role: 'investor', age: 22, gender: 'male', location: 'Misrata, Libya', passportUrl: null, status: 'pending', isVerified: false, kycStatus: 'pending', walletBalance: 0, createdAt: '2024-05-01T10:00:00Z' },
+  { id: 'u4', name: 'Sara Khalil', phone: '+218944444444', email: 'sara@test.ly', role: 'investor', age: 31, gender: 'female', location: 'Zawiya, Libya', passportUrl: null, status: 'suspended', isVerified: true, kycStatus: 'approved', walletBalance: 2500, contributionTotal: 11000, contributionsCount: 2, createdAt: '2024-02-10T10:00:00Z' },
 ];
 
 const MOCK_PROJECTS = [
@@ -60,6 +75,10 @@ const MOCK_STATS = {
   successRate: 75,
 };
 
+/**
+ * Wraps an array in the same pagination envelope the real API returns.
+ * The generic <T> means it works with any item type (users, payments, etc.).
+ */
 const paginate = <T>(items: T[]) => ({
   data: items,
   total: items.length,
@@ -68,6 +87,10 @@ const paginate = <T>(items: T[]) => ({
   totalPages: 1,
 });
 
+/**
+ * Builds a successful Axios response object with HTTP status 200.
+ * Every mock handler returns this so callers see a consistent response shape.
+ */
 const ok = (data: unknown, config: InternalAxiosRequestConfig): AxiosResponse => ({
   data: { data },
   status: 200,
@@ -135,6 +158,12 @@ export async function mockAdapter(config: InternalAxiosRequestConfig): Promise<A
   if (method === 'get' && url.includes('/documents')) {
     return ok([], config);
   }
+  if (method === 'post' && url.includes('/kyc/approve')) {
+    return ok({ success: true, kycStatus: 'approved' }, config);
+  }
+  if (method === 'post' && url.includes('/kyc/reject')) {
+    return ok({ success: true, kycStatus: 'rejected' }, config);
+  }
   if (method === 'post' && url.includes('/kyc')) {
     return ok({ success: true }, config);
   }
@@ -184,6 +213,39 @@ export async function mockAdapter(config: InternalAxiosRequestConfig): Promise<A
   // ── Payments ──────────────────────────────────────────────────────────────
   if (method === 'get' && url.includes('/admin/payments')) {
     return ok(paginate(MOCK_PAYMENTS), config);
+  }
+  if (method === 'post' && url.includes('/approve') && url.includes('payments')) {
+    return ok({ success: true, status: 'completed' }, config);
+  }
+  if (method === 'post' && url.includes('/reject') && url.includes('payments')) {
+    return ok({ success: true, status: 'failed' }, config);
+  }
+  if (method === 'post' && url.includes('/refund')) {
+    return ok({ success: true, status: 'refunded' }, config);
+  }
+  if (method === 'put' && url.includes('/status') && url.includes('payments')) {
+    return ok({ success: true }, config);
+  }
+  if (method === 'post' && url.includes('/wallet/add')) {
+    return ok({ success: true, newBalance: 15000 }, config);
+  }
+  if (method === 'post' && url.includes('/wallet/transfer')) {
+    return ok({ success: true }, config);
+  }
+  if (method === 'get' && url.includes('/admin/wallets')) {
+    const BALANCE_POOL = [5000, 12500, 0, 2500, 45000, 1000];
+    const STATUS_POOL = ['active', 'active', 'active', 'frozen', 'inactive'] as const;
+    const wallets = MOCK_USERS.map((u, i) => ({
+      userId:           u.id,
+      userName:         u.name,
+      userEmail:        u.email,
+      balance:          BALANCE_POOL[i % BALANCE_POOL.length],
+      totalDeposits:    BALANCE_POOL[i % BALANCE_POOL.length] * 2,
+      totalWithdrawals: BALANCE_POOL[i % BALANCE_POOL.length],
+      lastActivity:     new Date(Date.now() - i * 86400000).toISOString(),
+      status:           STATUS_POOL[i % STATUS_POOL.length],
+    }));
+    return ok(paginate(wallets), config);
   }
 
   // ── Notifications ─────────────────────────────────────────────────────────

@@ -1,5 +1,16 @@
 'use client';
 
+/**
+ * Sidebar navigation for the admin dashboard.
+ *
+ * Behaviours:
+ *  - Desktop: always visible; can be collapsed to icon-only mode via the toggle button.
+ *  - Mobile:  hidden by default; slides in as an overlay when isMobileOpen is true.
+ *
+ * NAV_ITEMS defines every link in the sidebar grouped into sections.
+ * To add a new page, just add an entry to the correct section in NAV_ITEMS.
+ */
+
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -19,6 +30,7 @@ import {
   Menu,
   X,
   Clock,
+  Wallet,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar } from '@/components/ui/Avatar';
@@ -39,6 +51,7 @@ const NAV_ITEMS = [
       { href: '/projects/pending', icon: Clock, label: 'Pending Review' },
       { href: '/investments', icon: TrendingUp, label: 'Investments' },
       { href: '/payments', icon: CreditCard, label: 'Payments' },
+      { href: '/wallets', icon: Wallet, label: 'Wallets' },
     ],
   },
   {

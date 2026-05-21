@@ -68,9 +68,9 @@ export const API_CONFIG = {
     // POST /auth/verify-otp      { phone, otp, role }
     // POST /auth/login           { phone, password, role }
     // POST /auth/login-simple    { phone }
-    // POST /auth/register        { name, phone, email, role, type, password, ... }
+    // POST /auth/register        { name, phone, email, role, age, gender, location, passportUrl, password, ... }
     // GET  /auth/profile
-    // PUT  /auth/profile         { name, email, bio, companyName, ... }
+    // PUT  /auth/profile         { name, email, bio, companyName, age, gender, location, ... }
     // POST /auth/refresh-token   { refreshToken }
     // POST /auth/logout
     // POST /auth/login-email       { email, password, role }
@@ -163,20 +163,25 @@ export const API_CONFIG = {
       refund:   (paymentId) => `/payments/${paymentId}/refund`,
       history:  '/payments/history',
       details:  (paymentId) => `/payments/${paymentId}`,
+      wallet:   '/payments/wallet',
     },
 
     // ── Users ────────────────────────────────────────────────────────────────
     // GET    /users/:userId
-    // PUT    /users/:userId
+    // PUT    /users/:userId   { name, email, age, gender, location, companyName, bio, ... }
     // DELETE /users/:userId
-    // POST   /users/:userId/kyc
+    // POST   /users/:userId/kyc          multipart/form-data — passport image (field: "passport")
     // GET    /users/:userId/documents
     // GET    /users/:userId/investments
+    // POST   /admin/users/:userId/kyc/approve  → sets kycStatus = 'approved', isVerified = true
+    // POST   /admin/users/:userId/kyc/reject   { reason? } → sets kycStatus = 'rejected'
     users: {
       details:     (userId) => `/users/${userId}`,
       update:      (userId) => `/users/${userId}`,
       delete:      (userId) => `/users/${userId}`,
       kyc:         (userId) => `/users/${userId}/kyc`,
+      kycApprove:  (userId) => `/admin/users/${userId}/kyc/approve`,
+      kycReject:   (userId) => `/admin/users/${userId}/kyc/reject`,
       documents:   (userId) => `/users/${userId}/documents`,
       investments: (userId) => `/users/${userId}/investments`,
     },

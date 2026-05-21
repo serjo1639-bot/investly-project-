@@ -82,6 +82,8 @@ import RechargeWalletScreen  from './RechargeWalletScreen';
 import ForgotPasswordScreen  from './ForgotPasswordScreen';
 import CheckEmailScreen      from './CheckEmailScreen';
 import ResetPasswordScreen   from './ResetPasswordScreen';
+import PaymentsScreen        from './PaymentsScreen';
+import SecurePaymentScreen   from './SecurePaymentScreen';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -109,6 +111,8 @@ const screens = {
   ForgotPassword:  ForgotPasswordScreen,
   CheckEmail:      CheckEmailScreen,
   ResetPassword:   ResetPasswordScreen,
+  Payments:        PaymentsScreen,
+  SecurePayment:   SecurePaymentScreen,
 };
 
 /**
@@ -119,13 +123,13 @@ const screens = {
 const TABS_BY_ROLE = {
   guest: [
     { key: 'Home',    labelKey: 'home',    fallbackLabel: { ar: 'الرئيسية', en: 'Home' },     icons: { active: 'home',    inactive: 'home-outline' } },
-    { key: 'Projects', labelKey: 'projects', fallbackLabel: { ar: 'المشاريع', en: 'Projects' }, icons: { active: 'leaf',    inactive: 'leaf-outline' } },
+    { key: 'Projects', labelKey: 'projects', fallbackLabel: { ar: 'المشاريع', en: 'Projects' }, icons: { active: 'trending-up', inactive: 'trending-up-outline' } },
     { key: 'Cart',    labelKey: 'cart',    fallbackLabel: { ar: 'السلة',    en: 'Cart' },      icons: { active: 'bag',     inactive: 'bag-outline' } },
     { key: 'Account', labelKey: 'account', fallbackLabel: { ar: 'الحساب',   en: 'Account' },   icons: { active: 'person',  inactive: 'person-outline' } },
   ],
   investor: [
     { key: 'Home',    labelKey: 'home',    fallbackLabel: { ar: 'الرئيسية', en: 'Home' },     icons: { active: 'home',    inactive: 'home-outline' } },
-    { key: 'Projects', labelKey: 'projects', fallbackLabel: { ar: 'المشاريع', en: 'Projects' }, icons: { active: 'leaf',    inactive: 'leaf-outline' } },
+    { key: 'Projects', labelKey: 'projects', fallbackLabel: { ar: 'المشاريع', en: 'Projects' }, icons: { active: 'trending-up', inactive: 'trending-up-outline' } },
     { key: 'Cart',    labelKey: 'cart',    fallbackLabel: { ar: 'السلة',    en: 'Cart' },      icons: { active: 'bag',     inactive: 'bag-outline' } },
     { key: 'Account', labelKey: 'account', fallbackLabel: { ar: 'الحساب',   en: 'Account' },   icons: { active: 'person',  inactive: 'person-outline' } },
   ],
@@ -520,7 +524,7 @@ export default function AppNavigator() {
 
   // ── Tab bar visibility ────────────────────────────────────────────────────
   // Hide the tab bar on full-screen flows where the tab bar would be distracting
-  const hideTabBar   = ['Login', 'Register', 'AddProject', 'Contribution', 'EditAccount', 'RechargeWallet', 'Notifications', 'ForgotPassword', 'CheckEmail', 'ResetPassword'].includes(currentScreen);
+  const hideTabBar   = ['Login', 'Register', 'AddProject', 'Contribution', 'EditAccount', 'RechargeWallet', 'Notifications', 'ForgotPassword', 'CheckEmail', 'ResetPassword', 'Payments', 'SecurePayment'].includes(currentScreen);
   const tabBarHeight = hideTabBar ? 0 : 82 + Math.max(insets.bottom, Platform.OS === 'ios' ? 10 : 8);
 
   // ── Drawer animation interpolations ──────────────────────────────────────
@@ -754,6 +758,12 @@ export default function AppNavigator() {
           if (currentScreen === 'RechargeWallet') {
             return <RechargeWalletScreen navigation={{ goBack, navigate }} />;
           }
+          if (currentScreen === 'Payments') {
+            return <PaymentsScreen navigation={{ goBack, navigate }} />;
+          }
+          if (currentScreen === 'SecurePayment') {
+            return <SecurePaymentScreen navigation={{ goBack, navigate }} />;
+          }
           const ActiveScreen = screens[currentScreen] || screens.Home;
           return <ActiveScreen {...screenProps} />;
         })()}
@@ -835,21 +845,24 @@ const styles = StyleSheet.create({
   // Tab bar floats above the screen content
   tabBarWrap: {
     position: 'absolute',
-    left:     0,
-    right:    0,
-    bottom:   0,
+    left:  0,
+    right: 0,
+    bottom: 0,
   },
   tabBar: {
-    backgroundColor:    COLORS.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal:  SPACING.md,
-    paddingTop:         SPACING.sm,
-    elevation:          22,
-    shadowColor:        '#0f172a',
-    shadowOffset:       { width: 0, height: -8 },
-    shadowOpacity:      0.12,
-    shadowRadius:       20,
+    backgroundColor:      COLORS.surface,
+    borderTopLeftRadius:  32,
+    borderTopRightRadius: 32,
+    paddingHorizontal:    SPACING.sm,
+    paddingTop:           SPACING.sm,
+    // Stronger top border line for visual separation
+    borderTopWidth:       1,
+    borderTopColor:       COLORS.borderLight,
+    elevation:            28,
+    shadowColor:          '#0D1B4B',
+    shadowOffset:         { width: 0, height: -6 },
+    shadowOpacity:        0.10,
+    shadowRadius:         24,
   },
   tabTouch: {
     flex: 1,
@@ -858,68 +871,65 @@ const styles = StyleSheet.create({
     position:        'relative',
     alignItems:      'center',
     justifyContent:  'center',
-    minHeight:       72,
+    minHeight:       68,
     paddingVertical: SPACING.sm,
     marginHorizontal: 2,
-    borderRadius:    24,
+    borderRadius:    20,
     overflow:        'hidden',
   },
   tabItemPressed: {
-    transform: [{ scale: 0.96 }],
+    transform: [{ scale: 0.94 }],
   },
-  // Radial blue halo behind active icon
+  // Soft pill highlight behind active icon (more prominent than before)
   activeHalo: {
     position:        'absolute',
-    width:           76,
-    height:          76,
-    borderRadius:    38,
-    backgroundColor: 'rgba(47, 91, 231, 0.10)',
-    bottom:          -16,
+    width:           52,
+    height:          52,
+    borderRadius:    26,
+    backgroundColor: COLORS.primaryLight,
+    top:             4,
   },
   tabLabel: {
     fontSize:   FONTS.xs,
     fontWeight: FONTS.semibold,
-    marginTop:  6,
+    marginTop:  5,
   },
   tabLabelActive: {
     fontWeight: FONTS.bold,
   },
-  // Icon wrapper inside each tab item
   iconContainer: {
     alignItems:     'center',
     justifyContent: 'center',
     position:       'relative',
   },
-  iconContainerActive: {
-    // Active state handled via transform prop; no extra background needed
-  },
-  // Small dot below the active tab icon
+  iconContainerActive: {},
+  // Small pill underline indicator on active tab
   activeIndicator: {
     position:        'absolute',
-    bottom:          -4,
-    width:           4,
-    height:          4,
+    bottom:          -5,
+    width:           18,
+    height:          3,
     borderRadius:    2,
     backgroundColor: COLORS.primary,
   },
   // Cart item count badge
   badge: {
-    position:        'absolute',
-    top:             6,
-    right:           16,
-    backgroundColor: COLORS.danger,
-    borderRadius:    RADIUS.full,
-    minWidth:        20,
-    height:          20,
-    alignItems:      'center',
-    justifyContent:  'center',
-    paddingHorizontal: 6,
-    borderWidth:     2,
-    borderColor:     COLORS.white,
+    position:          'absolute',
+    top:               4,
+    right:             14,
+    backgroundColor:   COLORS.danger,
+    borderRadius:      RADIUS.full,
+    minWidth:          18,
+    height:            18,
+    alignItems:        'center',
+    justifyContent:    'center',
+    paddingHorizontal: 5,
+    borderWidth:       2,
+    borderColor:       COLORS.white,
   },
   badgeText: {
     color:      COLORS.white,
-    fontSize:   10,
+    fontSize:   9,
     fontWeight: FONTS.bold,
   },
 
