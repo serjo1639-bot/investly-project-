@@ -1,15 +1,20 @@
-using InvestlyFullAPI.DTOs.Investment;
-using InvestlyFullAPI.Interfaces;
-using Microsoft.AspNetCore.Authorization;
+// ============================================================
+// INVESTMENTS CONTROLLER - Investment CRUD and portfolio
+// ============================================================
+// All endpoints require authentication (class-level [Authorize]).
+// Investing requires the "Investor" role specifically.
+// ============================================================
+
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Investly_Backend.DTOs;
+using Investly_Backend.Interfaces;
 
-namespace InvestlyFullAPI.Controllers;
+namespace Investly_Backend.Controllers;
 
-// InvestmentsController exposes API endpoints for assets inside a portfolio.
-// Controllers should stay thin: they validate HTTP input, call the service,
-// then convert the service result into the correct HTTP response.
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]  // All methods require authentication
 public class InvestmentsController : ControllerBase
 {
     private readonly IInvestmentService _investmentService;
@@ -19,54 +24,73 @@ public class InvestmentsController : ControllerBase
         _investmentService = investmentService;
     }
 
-    // GET /api/investments/portfolio/{portfolioId}?userId=1
-    // Returns all investments in one portfolio. The service checks that the
-    // portfolio belongs to the user before returning any data.
-    [HttpGet("portfolio/{portfolioId:int}")]
-    [Authorize] // Requires a valid JWT token in the Authorization header.
-    public async Task<IActionResult> GetPortfolioInvestments(int portfolioId, [FromQuery] int userId)
+    // GET /api/investments/my - Current user's investments
+    [HttpGet("my")]
+    public async Task<IActionResult> GetMyInvestments([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
-        var investments = await _investmentService.GetPortfolioInvestmentsAsync(portfolioId, userId);
+        var userId = GetUserIdFromClaims();
+        if (userId == null)
+            return Unauthorized(new ApiResponse { Success = false, Message = "User not found" });
+        var investments = await _investmentService.GetByUserAsync(userId.Value, page, pageSize);
         return Ok(investments);
     }
 
-    // POST /api/investments/portfolio/{portfolioId}?userId=1
-    // Adds a new investment to the selected portfolio.
-    [HttpPost("portfolio/{portfolioId:int}")]
-    [Authorize]
-    public async Task<IActionResult> CreateInvestment(int portfolioId, [FromQuery] int userId, [FromBody] CreateInvestmentDto dto)
+    // GET /api/investments/{id} - Single investment
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetInvestment(int id)
     {
-        // ModelState contains validation errors from CreateInvestmentDto attributes.
-        if (!ModelState.IsValid) return BadRequest(ModelState);
-
-        var investment = await _investmentService.CreateInvestmentAsync(portfolioId, userId, dto);
-
-        // Null means the portfolio was missing or did not belong to this user.
-        if (investment == null) return NotFound(new { Message = "Portfolio not found" });
-
-        // 201 Created tells the client that a new resource was saved.
-        return CreatedAtAction(nameof(GetPortfolioInvestments), new { portfolioId, userId }, investment);
-    }
-
-    // PATCH /api/investments/{investmentId}/price?userId=1
-    // Updates only the current market price, not the whole investment record.
-    [HttpPatch("{investmentId:int}/price")]
-    [Authorize]
-    public async Task<IActionResult> UpdatePrice(int investmentId, [FromQuery] int userId, [FromBody] decimal newPrice)
-    {
-        var investment = await _investmentService.UpdatePriceAsync(investmentId, userId, newPrice);
-        if (investment == null) return NotFound(new { Message = "Investment not found" });
+        var investment = await _investmentService.GetByIdAsync(id);
+        if (investment == null)
+            return NotFound(new ApiResponse { Success = false, Message = "Investment not found" });
         return Ok(investment);
     }
 
-    // DELETE /api/investments/{investmentId}?userId=1
-    // Removes an investment and adjusts the portfolio totals inside the service.
-    [HttpDelete("{investmentId:int}")]
-    [Authorize]
-    public async Task<IActionResult> DeleteInvestment(int investmentId, [FromQuery] int userId)
+    // POST /api/investments - Create pending investment (investor only)
+    [Authorize(Roles = "Investor")]
+    [HttpPost]
+    public async Task<IActionResult> CreateInvestment([FromBody] CreateInvestmentRequest request)
     {
-        var result = await _investmentService.DeleteInvestmentAsync(investmentId, userId);
-        if (!result) return NotFound(new { Message = "Investment not found" });
-        return NoContent();
+        var userId = GetUserIdFromClaims();
+        if (userId == null)
+            return Unauthorized(new ApiResponse { Success = false, Message = "User not found" });
+        var result = await _investmentService.CreateAsync(userId.Value, request);
+        return Ok(result);
+    }
+
+    // POST /api/investments/{id}/confirm - Confirm pending investment
+    [Authorize(Roles = "Investor")]
+    [HttpPost("{id}/confirm")]
+    public async Task<IActionResult> ConfirmInvestment(int id)
+    {
+        var result = await _investmentService.ConfirmAsync(id);
+        return Ok(result);
+    }
+
+    // POST /api/investments/{id}/cancel - Cancel pending investment
+    [Authorize(Roles = "Investor")]
+    [HttpPost("{id}/cancel")]
+    public async Task<IActionResult> CancelInvestment(int id)
+    {
+        var result = await _investmentService.CancelAsync(id);
+        return Ok(result);
+    }
+
+    // GET /api/investments/portfolio/summary - Portfolio stats
+    [HttpGet("portfolio/summary")]
+    public async Task<IActionResult> GetPortfolioSummary()
+    {
+        var userId = GetUserIdFromClaims();
+        if (userId == null)
+            return Unauthorized(new ApiResponse { Success = false, Message = "User not found" });
+        var summary = await _investmentService.GetPortfolioSummaryAsync(userId.Value);
+        return Ok(summary);
+    }
+
+    private int? GetUserIdFromClaims()
+    {
+        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
+            return userId;
+        return null;
     }
 }

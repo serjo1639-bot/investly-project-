@@ -1,181 +1,201 @@
+// ============================================================
+// INVESTLY BACKEND - APPLICATION ENTRY POINT
+// ============================================================
+// This file is the STARTUP of the entire web application.
+// ASP.NET Core uses a "builder" pattern to configure
+// everything BEFORE the app starts listening for requests.
+//
+// KEY ASP.NET CONCEPT: The "middleware pipeline"
+// Every HTTP request travels through a series of components
+// (middleware) in the ORDER they are added below.
+// Each middleware can process the request, pass it to the next,
+// or short-circuit (return a response early).
+// ============================================================
+
 using System.Text;
-using InvestlyFullAPI.Data;
-using InvestlyFullAPI.Interfaces;
-using InvestlyFullAPI.Middleware;
-using InvestlyFullAPI.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Investly_Backend.Data;
+using Investly_Backend.Hubs;
+using Investly_Backend.Interfaces;
+using Investly_Backend.Middleware;
+using Investly_Backend.Services;
 
-// ============================================
-// PROGRAM.CS - Application Entry Point
-// ============================================
-// This is where the application starts. It configures:
-// - Database connection
-// - Authentication (JWT)
-// - Services (Dependency Injection)
-// - Middleware pipeline (request handling order)
-// ============================================
-
+// --- BUILDER PHASE ---
+// WebApplication.CreateBuilder sets up the default infrastructure:
+// - Web server (Kestrel)
+// - Configuration (appsettings.json, env variables)
+// - Logging
+// - Dependency Injection container (the "DI container")
 var builder = WebApplication.CreateBuilder(args);
 
-// -------------------------------------------------------
-// 1. ADD SERVICES TO THE CONTAINER
-// -------------------------------------------------------
-// Services registered here can be injected into controllers
-// and other services via constructor parameters (Dependency Injection)
+// ---- DEPENDENCY INJECTION (DI) ----
+// DI is a pattern where classes receive their dependencies
+// (like services) through their constructor instead of
+// creating them directly. ASP.NET Core has a built-in DI container.
+//
+// Three lifetimes:
+// - AddScoped:  ONE instance per HTTP request (most common for services)
+// - AddTransient: NEW instance every time it's requested
+// - AddSingleton: ONE instance for the entire app lifetime
 
-// Add controllers so the app can handle HTTP requests
+// Registers controllers so ASP.NET can find and route to them
 builder.Services.AddControllers();
 
-// Add Swagger for API documentation (accessible at /swagger)
+// Enables exploring API endpoints (used by Swagger to generate docs)
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
-{
-    // Configure Swagger to accept JWT tokens for authorization
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Type = SecuritySchemeType.Http,
-        Scheme = "Bearer",
-        BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "Enter your JWT token here"
-    });
 
-    // Make Swagger send the JWT token with every request
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
+// ---- SWAGGER / OPENAPI CONFIGURATION ----
+// Swagger generates interactive API documentation at /swagger
+// We configure JWT "Bearer" auth so we can test protected endpoints
+builder.Services.AddSwaggerGen(c => {
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme {
+        Description = "JWT Authorization header using the Bearer scheme",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement {
         {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
+            new OpenApiSecurityScheme {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
             },
             Array.Empty<string>()
         }
     });
 });
 
-// Configure CORS (Cross-Origin Resource Sharing)
-// This allows your frontend (running on a different port) to call this API
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowFrontend", policy =>
-    {
-        policy.AllowAnyOrigin()     // Allow requests from any domain
-              .AllowAnyHeader()     // Allow any HTTP headers
-              .AllowAnyMethod();    // Allow GET, POST, PUT, DELETE, etc.
-    });
-});
+// ---- SIGNALR ----
+// SignalR enables REAL-TIME communication (WebSocket).
+// Used here for live notifications to connected clients.
+builder.Services.AddSignalR();
 
-// Register the database context with Entity Framework
-// Tell EF to use SQL Server with the connection string from appsettings.json
+// ---- ENTITY FRAMEWORK CORE (EF Core) ----
+// EF Core is an ORM (Object-Relational Mapper).
+// It maps C# objects (models) to database tables so we don't
+// write raw SQL. AppDbContext is the bridge between code and DB.
+// UseSqlServer tells EF to talk to SQL Server.
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// -------------------------------------------------------
-// 2. CONFIGURE JWT AUTHENTICATION
-// -------------------------------------------------------
-// JWT (JSON Web Token) is how users prove their identity
-// The server generates a signed token on login, and the client
-// sends it in the Authorization header for subsequent requests
-
-var jwtSettings = builder.Configuration.GetSection("JWT");
-var jwtKey = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
-
-builder.Services.AddAuthentication(options =>
-{
-    // Default authentication scheme = JWT Bearer tokens
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    // Configure how to validate incoming JWT tokens
-    options.TokenValidationParameters = new TokenValidationParameters
+// ---- JWT AUTHENTICATION CONFIGURATION ----
+// JWT (JSON Web Token) is a token-based auth system.
+// When a user logs in, the server creates a signed JWT.
+// The client sends this JWT in the Authorization header.
+// The server validates the signature to verify identity.
+var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured");
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "Investly";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "InvestlyUsers";
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
     {
-        ValidateIssuer = true,           // Check that the token was issued by us
-        ValidateAudience = true,         // Check that the token is for our API
-        ValidateLifetime = true,         // Check that the token hasn't expired
-        ValidateIssuerSigningKey = true, // Verify the signature is valid
+        // TokenValidationParameters defines HOW to verify incoming JWTs
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,           // Verify the token was issued by OUR server
+            ValidateAudience = true,         // Verify the token is meant for OUR app
+            ValidateLifetime = true,         // Verify the token hasn't expired
+            ValidateIssuerSigningKey = true, // Verify the signature using our secret key
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            ClockSkew = TimeSpan.Zero        // Eliminate the default 5min grace period
+        };
 
-        ValidIssuer = jwtSettings["Issuer"],
-        ValidAudience = jwtSettings["Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(jwtKey)
-    };
-});
+        // Special handling: SignalR connections pass the token as a query param
+        // (since WebSockets can't set custom headers)
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                    context.Token = accessToken;
+                return Task.CompletedTask;
+            }
+        };
+    });
 
-// Register services for Dependency Injection
-// AddScoped = one instance per HTTP request
-// AddSingleton = one instance for the entire application lifetime
+// Adds [Authorize] and [Authorize(Roles = "...")] support
+builder.Services.AddAuthorization();
+
+// ---- SERVICE REGISTRATION ----
+// Register ALL service interfaces with their implementations.
+// Scoped = one instance per HTTP request (the default for web services).
+// This enables constructor injection in controllers:
+//   public MyController(IMyService service) { _service = service; }
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<INotificationService, NotificationService>();
-builder.Services.AddScoped<IPortfolioService, PortfolioService>();
+builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IInvestmentService, InvestmentService>();
-builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IWalletService, WalletService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IMediaService, MediaService>();
+// EmailService is Singleton because SmtpClient is expensive to create
+builder.Services.AddSingleton<IEmailService, EmailService>();
 
-// Add SignalR for real-time notifications (WebSocket-based)
-builder.Services.AddSignalR();
+// ---- CORS (Cross-Origin Resource Sharing) ----
+// Browsers block JavaScript from one domain calling APIs on another.
+// CORS tells the browser it's OK to allow cross-origin requests.
+// "AllowAll" is permissive (fine for development, restrict in production).
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin();
+    });
+});
 
-// Configure FluentEmail for sending emails via SMTP
-builder.Services.AddFluentEmail(
-    builder.Configuration["Email:FromEmail"],
-    builder.Configuration["Email:FromName"]
-)
-.AddSmtpSender(
-    builder.Configuration["Email:SmtpHost"],
-    int.Parse(builder.Configuration["Email:SmtpPort"] ?? "587"),
-    builder.Configuration["Email:SmtpUsername"],
-    builder.Configuration["Email:SmtpPassword"]
-);
-
+// --- APP BUILD PHASE ---
+// Everything above configured the builder.
+// Build() creates the actual WebApplication from those settings.
 var app = builder.Build();
 
-// -------------------------------------------------------
-// 3. BUILD THE MIDDLEWARE PIPELINE
-// -------------------------------------------------------
-// Middleware are components that process HTTP requests in order
-// Each middleware can:
-//   1. Do something with the request
-//   2. Pass it to the next middleware
-//   3. Do something with the response
-// The order matters! (e.g., auth must come before controllers)
+// ---- MIDDLEWARE PIPELINE ----
+// ORDER MATTERS! Each request flows through these in sequence.
+// The general rule: put auth-related middleware BEFORE endpoints.
 
-// Custom global exception handler (our middleware)
-// Catches all unhandled exceptions and returns clean JSON
-app.UseMiddleware<ExceptionMiddleware>();
-
-// Development-only middleware
+// Swagger UI (only in development, for API testing)
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();          // Generate Swagger JSON spec
-    app.UseSwaggerUI();        // Serve the Swagger UI page
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
-// Enable CORS (must come before authentication/authorization)
-app.UseCors("AllowFrontend");
+// Custom exception handler (wraps uncaught errors in JSON responses)
+app.UseMiddleware<ExceptionMiddleware>();
 
-// Redirect HTTP to HTTPS
-app.UseHttpsRedirection();
+// CORS policy (must come before auth)
+app.UseCors("AllowAll");
 
-// Enable authentication (verify who the user is)
+// Authentication: identifies WHO the user is (reads JWT)
 app.UseAuthentication();
 
-// Enable authorization (check what the user can do)
+// Authorization: checks WHAT the user is allowed to do (checks roles)
 app.UseAuthorization();
 
-// Map controllers to handle HTTP requests
+// Maps controller endpoints (routes like /api/auth/login to AuthController)
 app.MapControllers();
 
-// Map the SignalR hub for real-time notifications
-// The frontend connects to /notificationHub via WebSocket
-app.MapHub<NotificationHub>("/notificationHub");
+// Maps the SignalR hub at /hubs/notifications for real-time updates
+app.MapHub<NotificationHub>("/hubs/notifications");
 
-// Start the application and listen for requests
+// ---- DATABASE INITIALIZATION ----
+// EnsureCreated() creates the database + tables if they don't exist.
+// This is NOT a migration tool - it only creates, never updates.
+// For production, use EF Core migrations instead.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.EnsureCreated();
+}
+
+// ---- START LISTENING ----
+// This blocking call starts the web server and waits for requests.
+// Everything before this was just configuration.
 app.Run();

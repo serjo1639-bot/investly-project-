@@ -1,15 +1,31 @@
-using InvestlyFullAPI.DTOs.Auth;
+// ============================================================
+// IAuthService - INTERFACE for authentication operations
+// ============================================================
+// WHY INTERFACES?
+// An interface is a CONTRACT - it defines WHAT methods a class
+// must implement, but not HOW.
+//
+// BENEFITS:
+// 1. TESTABILITY: You can mock the interface in unit tests
+//    without needing a real database
+// 2. SWAPPABILITY: You can change the implementation without
+//    changing the code that uses it
+// 3. DI-FRIENDLY: ASP.NET DI container works best with interfaces
+//
+// PATTERN: Interface -> Implementation
+//   IAuthService (contract) -> AuthService (implementation)
+//   Program.cs registers: AddScoped<IAuthService, AuthService>()
+//   Controllers receive IAuthService in constructor
+// ============================================================
 
-namespace InvestlyFullAPI.Interfaces;
+using Investly_Backend.DTOs;
 
-// Handles user registration, login, and JWT token generation
+namespace Investly_Backend.Interfaces;
+
 public interface IAuthService
 {
-    // Register a new user account
-    // Returns the auth response with JWT token, or null if email already exists
-    Task<AuthResponseDto?> RegisterAsync(RegisterDto registerDto);
-
-    // Log in with email and password
-    // Returns the auth response with JWT token, or null if credentials are invalid
-    Task<AuthResponseDto?> LoginAsync(LoginDto loginDto);
+    Task<LoginResponse> LoginAsync(LoginRequest request);
+    Task<LoginResponse> RegisterAsync(RegisterRequest request);
+    Task<bool> ChangePasswordAsync(int userId, ChangePasswordRequest request);
+    Task<UserDto?> GetCurrentUserAsync(int userId);
 }

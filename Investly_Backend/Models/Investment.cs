@@ -1,46 +1,59 @@
+// INVESTMENT - Links an investor to a project with an amount
+// When an investor decides to fund a project:
+//   1. Create investment (Pending) -> money is LOCKED in wallet
+//   2. Confirm investment -> money is PERMANENTLY taken from wallet
+//   3. Cancel investment -> money is RETURNED to wallet
+//
+// Think of it like a hold on a credit card - the money is reserved
+// but not charged until confirmation.
+
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace InvestlyFullAPI.Models;
-
-// A single investment asset within a portfolio (e.g., 10 shares of Apple stock)
-public class Investment
+namespace Investly_Backend.Models
 {
-    [Key]
-    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-    public int InvestmentId { get; set; }
+    [Table("Investments")]
+    public class Investment
+    {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public int InvestmentId { get; set; }
 
-    // Which portfolio this investment belongs to
-    public int PortfolioId { get; set; }
+        [Required]
+        public int InvestorProfileId { get; set; }  // FK -> InvestorProfile
 
-    // Human-readable name like "Apple Inc." or "Bitcoin"
-    [Required]
-    [MaxLength(200)]
-    public string AssetName { get; set; } = string.Empty;
+        [Required]
+        public int ProjectId { get; set; }  // FK -> Project
 
-    // Ticker symbol like "AAPL", "BTC", "TSLA"
-    [Required]
-    [MaxLength(20)]
-    public string AssetSymbol { get; set; } = string.Empty;
+        [Required]
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal Amount { get; set; }
 
-    // How many units/shares purchased (decimal supports fractional shares)
-    public decimal Quantity { get; set; }
+        [Required]
+        [MaxLength(20)]
+        public string Status { get; set; } = "Pending";  // Pending | Confirmed | Cancelled
 
-    // Price paid per unit at purchase time
-    public decimal PurchasePrice { get; set; }
+        [Column(TypeName = "decimal(9,6)")]  // 9 digits, 6 after decimal
+        public decimal? FundingPercentage { get; set; }  // % of funding goal this investment covers
 
-    // Current market price per unit (updated periodically)
-    public decimal CurrentPrice { get; set; }
+        [Column(TypeName = "decimal(9,6)")]
+        public decimal? EquityPercentage { get; set; }  // % equity this investor gets
 
-    // When this investment was purchased
-    public DateTime PurchaseDate { get; set; } = DateTime.UtcNow;
+        [Required]
+        public DateTime CreatedAt { get; set; }
 
-    // Category: "Stock", "Crypto", "Bond", "RealEstate", "Commodity", "ETF"
-    [Required]
-    [MaxLength(50)]
-    public string InvestmentType { get; set; } = string.Empty;
+        public DateTime? ConfirmedAt { get; set; }
 
-    // Navigation: the portfolio this investment belongs to
-    [ForeignKey(nameof(PortfolioId))]
-    public Portfolio Portfolio { get; set; } = null!;
+        [ForeignKey("InvestorProfileId")]
+        public InvestorProfile InvestorProfile { get; set; }
+
+        [ForeignKey("ProjectId")]
+        public Project Project { get; set; }
+
+        // Navigation: one investment can have dividend payouts and escrow transactions
+        public ICollection<DividendPayout> DividendPayouts { get; set; } = new List<DividendPayout>();
+        public ICollection<EscrowTransaction> EscrowTransactions { get; set; } = new List<EscrowTransaction>();
+    }
 }

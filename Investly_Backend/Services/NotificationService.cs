@@ -1,62 +1,95 @@
-using InvestlyFullAPI.Data;
-using InvestlyFullAPI.DTOs.Notification;
-using InvestlyFullAPI.Interfaces;
-using InvestlyFullAPI.Models;
-using Microsoft.AspNetCore.SignalR;
+// ============================================================
+// NOTIFICATION SERVICE - User notification management
+// ============================================================
+// Notifications are bilingual (Arabic + English) to support
+// a diverse user base. This service handles CRUD operations
+// and read/unread tracking.
+// ============================================================
+
 using Microsoft.EntityFrameworkCore;
+using Investly_Backend.Interfaces;
+using Investly_Backend.Models;
+using Investly_Backend.Data;
+using Investly_Backend.DTOs;
 
-namespace InvestlyFullAPI.Services;
+namespace Investly_Backend.Services;
 
-// NotificationService manages in-app notifications and pushes real-time updates via SignalR
 public class NotificationService : INotificationService
 {
     private readonly AppDbContext _context;
-    private readonly IHubContext<NotificationHub> _hubContext;
 
-    public NotificationService(AppDbContext context, IHubContext<NotificationHub> hubContext)
+    public NotificationService(AppDbContext context)
     {
         _context = context;
-        _hubContext = hubContext;
     }
 
-    // Get all notifications for a user, with optional read/unread filter
-    public async Task<List<NotificationDto>> GetUserNotificationsAsync(int userId, bool? isRead = null)
+    // Get paginated notifications for a user, with optional unread-only filter
+    public async Task<NotificationListDto> GetAllAsync(int uid, int page = 1, int pageSize = 10, bool unreadOnly = false)
     {
-        var query = _context.Notifications.Where(n => n.UserId == userId);
+        var query = _context.Notifications.Where(n => n.UserId == uid);
 
-        if (isRead.HasValue)
+        if (unreadOnly)
+            query = query.Where(n => n.IsRead == false);
+
+        var total = await query.CountAsync();
+        var unreadCount = await _context.Notifications.CountAsync(n => n.UserId == uid && n.IsRead == false);
+
+        var notifications = await query
+            .OrderByDescending(n => n.CreatedAt)  // Newest first
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var dtos = notifications.Select(n => new NotificationDto
         {
-            query = query.Where(n => n.IsRead == isRead.Value);
+            NotificationId = n.NotificationId,
+            UserId = n.UserId,
+            Type = n.Type,
+            TitleAr = n.TitleAr,
+            TitleEn = n.TitleEn,
+            MessageAr = n.MessageAr,
+            MessageEn = n.MessageEn,
+            IsRead = n.IsRead,
+            RelatedProjectId = n.RelatedProjectId,
+            RelatedInvestmentId = n.RelatedInvestmentId,
+            CreatedAt = n.CreatedAt
+        }).ToList();
+
+        return new NotificationListDto
+        {
+            Notifications = dtos,
+            UnreadCount = unreadCount,
+            TotalCount = total
+        };
+    }
+
+    public async Task<int> GetUnreadCountAsync(int uid)
+    {
+        return await _context.Notifications
+            .CountAsync(n => n.UserId == uid && n.IsRead == false);
+    }
+
+    public async Task MarkAsReadAsync(int uid, List<int> notificationIds)
+    {
+        var notifications = await _context.Notifications
+            .Where(n => n.UserId == uid && notificationIds.Contains(n.NotificationId))
+            .ToListAsync();
+
+        foreach (var notification in notifications)
+        {
+            notification.IsRead = true;
         }
 
-        // Most recent notifications first
-        var notifications = await query
-            .OrderByDescending(n => n.CreatedAt)
-            .ToListAsync();
-
-        return notifications.Select(MapToDto).ToList();
+        await _context.SaveChangesAsync();  // UPDATE Notifications SET IsRead = 1 WHERE ...
     }
 
-    // Mark a single notification as read
-    public async Task MarkAsReadAsync(int notificationId, int userId)
+    public async Task MarkAllAsReadAsync(int uid)
     {
-        var notification = await _context.Notifications
-            .FirstOrDefaultAsync(n => n.NotificationId == notificationId && n.UserId == userId);
-
-        if (notification == null) return;
-
-        notification.IsRead = true;
-        await _context.SaveChangesAsync();
-    }
-
-    // Mark ALL notifications for a user as read (bulk operation)
-    public async Task MarkAllAsReadAsync(int userId)
-    {
-        var unreadNotifications = await _context.Notifications
-            .Where(n => n.UserId == userId && !n.IsRead)
+        var notifications = await _context.Notifications
+            .Where(n => n.UserId == uid && n.IsRead == false)
             .ToListAsync();
 
-        foreach (var notification in unreadNotifications)
+        foreach (var notification in notifications)
         {
             notification.IsRead = true;
         }
@@ -64,45 +97,25 @@ public class NotificationService : INotificationService
         await _context.SaveChangesAsync();
     }
 
-    // Create a new notification AND push it to the user in real-time via SignalR
-    public async Task CreateNotificationAsync(int userId, string message, string? type = null)
+    // Create a new notification (called from other services when events happen)
+    // Example: when a project is approved, create a notification for the entrepreneur
+    public async Task CreateAsync(int uid, string type, string titleAr, string titleEn, string messageAr, string messageEn, int? projectId, int? investmentId)
     {
         var notification = new Notification
         {
-            UserId = userId,
-            Message = message,
-            Type = type ?? "Info",
+            UserId = uid,
+            Type = type,
+            TitleAr = titleAr,
+            TitleEn = titleEn,
+            MessageAr = messageAr,
+            MessageEn = messageEn,
             IsRead = false,
+            RelatedProjectId = projectId,
+            RelatedInvestmentId = investmentId,
             CreatedAt = DateTime.UtcNow
         };
 
         _context.Notifications.Add(notification);
-        await _context.SaveChangesAsync();
-
-        // Send real-time notification via SignalR
-        // The client listens on "ReceiveNotification" event
-        await _hubContext.Clients.Group($"user_{userId}")
-            .SendAsync("ReceiveNotification", MapToDto(notification));
-    }
-
-    // Count how many unread notifications a user has (useful for badges)
-    public async Task<int> GetUnreadCountAsync(int userId)
-    {
-        return await _context.Notifications
-            .CountAsync(n => n.UserId == userId && !n.IsRead);
-    }
-
-    // Helper: convert Notification model to DTO
-    private static NotificationDto MapToDto(Notification notification)
-    {
-        return new NotificationDto
-        {
-            NotificationId = notification.NotificationId,
-            UserId = notification.UserId,
-            Message = notification.Message,
-            IsRead = notification.IsRead,
-            CreatedAt = notification.CreatedAt,
-            Type = notification.Type
-        };
+        await _context.SaveChangesAsync();  // INSERT INTO Notifications ...
     }
 }

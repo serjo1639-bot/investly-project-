@@ -1,34 +1,61 @@
+// NOTIFICATION - User notifications (bilingual: Arabic + English)
+// The platform supports both Arabic and English notifications.
+// Each notification has Title and Message in both languages.
+// RelatedProjectId / RelatedInvestmentId link notifications to
+// specific entities so the frontend can navigate to them.
+
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace InvestlyFullAPI.Models;
-
-// Represents a notification sent to a user (in-app, via SignalR)
-public class Notification
+namespace Investly_Backend.Models
 {
-    [Key]
-    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-    public int NotificationId { get; set; }
+    [Table("Notifications")]
+    public class Notification
+    {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public int NotificationId { get; set; }
 
-    // Which user this notification belongs to (foreign key)
-    public int UserId { get; set; }
+        [Required]
+        public int UserId { get; set; }
 
-    // The actual notification text content
-    [Required]
-    [MaxLength(1000)]
-    public string Message { get; set; } = string.Empty;
+        [Required]
+        [MaxLength(20)]
+        public string Type { get; set; }  // e.g., "ProjectApproved", "InvestmentConfirmed", "KycApproved"
 
-    // Whether the user has read/dismissed this notification
-    public bool IsRead { get; set; } = false;
+        [Required]
+        [MaxLength(200)]
+        public string TitleAr { get; set; }  // Arabic title
 
-    // When the notification was created
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        [Required]
+        [MaxLength(200)]
+        public string TitleEn { get; set; }  // English title
 
-    // Category/type of notification: "Info", "Success", "Warning", "Error"
-    [MaxLength(50)]
-    public string? Type { get; set; }
+        [Required]
+        [MaxLength(500)]
+        public string MessageAr { get; set; }  // Arabic message
 
-    // Navigation: the user this notification belongs to
-    [ForeignKey(nameof(UserId))]
-    public User? User { get; set; }
+        [Required]
+        [MaxLength(500)]
+        public string MessageEn { get; set; }  // English message
+
+        [Required]
+        public bool IsRead { get; set; } = false;
+
+        public int? RelatedProjectId { get; set; }
+        public int? RelatedInvestmentId { get; set; }
+
+        [Required]
+        public DateTime CreatedAt { get; set; }
+
+        [ForeignKey("UserId")]
+        public User User { get; set; }
+
+        [ForeignKey("RelatedProjectId")]
+        public Project? RelatedProject { get; set; }
+
+        [ForeignKey("RelatedInvestmentId")]
+        public Investment? RelatedInvestment { get; set; }
+    }
 }
