@@ -38,8 +38,22 @@ import { notifyUnauthorized } from './authEvents';
 // ── Read config from expo-constants (app.json "extra") or .env ───────────────
 const expoConfig = Constants?.manifest?.extra || Constants?.expoConfig?.extra || {};
 
-const defaultApiBaseUrl =
+const rawApiBaseUrl =
   process.env.EXPO_PUBLIC_API_BASE_URL || expoConfig.apiBaseUrl || '';
+
+/**
+ * Android emulators cannot reach the host machine through "localhost".
+ * In dev, Android maps the host computer to 10.0.2.2, so this keeps the
+ * shared app.json value usable while still letting the mobile app hit Rider.
+ */
+const normalizeBaseUrlForDevice = (url) => {
+  if (Platform.OS !== 'android') return url;
+  return String(url)
+    .replace('http://localhost:', 'http://10.0.2.2:')
+    .replace('https://localhost:', 'https://10.0.2.2:');
+};
+
+const defaultApiBaseUrl = normalizeBaseUrlForDevice(rawApiBaseUrl);
 
 const defaultUseMockApi =
   expoConfig.useMockApi !== undefined
@@ -48,8 +62,13 @@ const defaultUseMockApi =
 
 if (typeof __DEV__ !== 'undefined' && __DEV__) {
   console.log('[API] baseURL    =', defaultApiBaseUrl || '(mock mode)');
+  if (rawApiBaseUrl !== defaultApiBaseUrl) {
+    console.log('[API] rawBaseURL =', rawApiBaseUrl, '-> normalized for device');
+  }
   console.log('[API] useMockApi =', defaultUseMockApi);
   console.log('[API] platform   =', Platform.OS);
+} else if (defaultApiBaseUrl.startsWith('http://') && !defaultUseMockApi) {
+  console.warn('[SECURITY WARNING] Connecting to backend over plain HTTP in production. You must use HTTPS with certificate pinning.');
 }
 
 // ─── API_CONFIG ───────────────────────────────────────────────────────────────
@@ -64,14 +83,13 @@ export const API_CONFIG = {
 
   endpoints: {
     // ── Auth ────────────────────────────────────────────────────────────────
-    // POST /auth/send-otp        { phone }
-    // POST /auth/verify-otp      { phone, otp, role }
-    // POST /auth/login           { phone, password, role }
-    // POST /auth/login-simple    { phone }
-    // POST /auth/register        { name, phone, email, role, type, password, ... }
-    // GET  /auth/profile
-    // PUT  /auth/profile         { name, email, bio, companyName, ... }
-    // POST /auth/refresh-token   { refreshToken }
+    // The ASP.NET backend exposes email/phone password login through one route:
+    // POST /auth/login { email?, phone?, password, role }
+    // Mobile-only OTP/simple-login screens stay mocked until matching backend routes exist.
+    // POST /auth/register { firstName, lastName, name, phone, email, role, password, ... }
+    // GET  /auth/me      current user
+    // GET  /auth/profile dashboard-compatible current user
+    // PUT  /auth/profile profile update
     // POST /auth/logout
     // POST /auth/login-email       { email, password, role }
     // POST /auth/forgot-password   { email }
@@ -82,12 +100,11 @@ export const API_CONFIG = {
       sendOtp:          '/auth/send-otp',
       verifyOtp:        '/auth/verify-otp',
       login:            '/auth/login',
-      loginEmail:       '/auth/login-email',
-      loginSimple:      '/auth/login-simple',
+      loginEmail:       '/auth/login',
+      loginSimple:      '/auth/login',
       register:         '/auth/register',
-      profile:          '/auth/profile',
+      profile:          '/auth/me',
       updateProfile:    '/auth/profile',
-      refreshToken:     '/auth/refresh-token',
       logout:           '/auth/logout',
       forgotPassword:   '/auth/forgot-password',
       verifyResetCode:  '/auth/verify-reset-code',
@@ -99,7 +116,7 @@ export const API_CONFIG = {
     // GET  /projects/featured
     // GET  /projects             ?category=tech&search=keyword&page=1&pageSize=20
     // GET  /projects/categories
-    // POST /projects             { titleAr, titleEn, category, cityAr, ... }
+    // POST /projects             { title, category, city, ... }
     // GET  /projects/:id
     // PUT  /projects/:id
     // DELETE /projects/:id
@@ -128,23 +145,21 @@ export const API_CONFIG = {
     },
 
     // ── Investments ─────────────────────────────────────────────────────────
-    // POST /investments/checkout       { currency, contributions: [{ projectId, amount, currency, paymentMethod }] }
-    // GET  /investments/me
-    // GET  /investments/history
-    // GET  /investments/wallet
-    // POST /investments/wallet/topup   { amount, method }
-    // POST /investments/wallet/withdraw { amount }
-    // GET  /investments/funding-options
-    // POST /investments/topup/redeem   { code }
+    // The backend investment flow is two-step:
+    // POST /investments         { projectId, amount } creates a Pending investment and locks wallet funds.
+    // POST /investments/:id/confirm confirms that pending investment.
+    // Wallet endpoints live under /wallet, not /investments.
     investments: {
-      confirm:        '/investments/checkout',
-      mine:           '/investments/me',
-      history:        '/investments/history',
-      wallet:         '/investments/wallet',
-      walletTopup:    '/investments/wallet/topup',
-      walletWithdraw: '/investments/wallet/withdraw',
-      fundingOptions: '/investments/funding-options',
-      redeemTopup:    '/investments/topup/redeem',
+      create:         '/investments',
+      confirm:        (id) => `/investments/${id}/confirm`,
+      mine:           '/investments/my',
+      history:        '/investments/my',
+      wallet:         '/wallet',
+      walletTopup:    '/wallet/deposit',
+      walletWithdraw: '/wallet/withdraw',
+      transactions:   '/wallet/transactions',
+      fundingOptions: '/wallet/funding-options',
+      redeemTopup:    '/wallet/deposit',
     },
 
     // ── Payments ────────────────────────────────────────────────────────────
@@ -190,8 +205,8 @@ export const API_CONFIG = {
     notifications: {
       list:        '/notifications',
       unreadCount: '/notifications/unread-count',
-      markRead:    (id) => `/notifications/${id}/read`,
-      markAllRead: '/notifications/read-all',
+      markRead:    '/notifications/mark-read',
+      markAllRead: '/notifications/mark-read',
       settings:    '/notifications/settings',
     },
 
@@ -216,7 +231,7 @@ export const API_CONFIG = {
     // POST /admin/users/:id/suspend   { reason } → temporarily suspend a user
     // POST /admin/users/:id/unsuspend            → lift a suspension
     // POST /admin/notifications/send             → broadcast or targeted push
-    //        body: { titleEn, titleAr, messageEn, messageAr, type, targetUserId? }
+    //        body: { title, message, type, targetUserId? }
     //        targetUserId omitted  → sent to ALL users
     //        targetUserId present  → sent to that one user only
     admin: {
@@ -311,19 +326,49 @@ export const apiRequest = async ({ path, method = 'GET', body, headers, query, t
       console.log('[API]', method, requestUrl, body ? JSON.stringify(body).slice(0, 200) : '');
     }
 
-    const response = await fetch(requestUrl, {
-      method,
-      headers: {
-        ...API_CONFIG.defaultHeaders,
-        ...(token || authToken ? { Authorization: `Bearer ${token || authToken}` } : {}),
-        ...(headers || {}),
-      },
-      body:   body ? JSON.stringify(body) : undefined,
-      signal: controller.signal,
-    });
+    let response;
+    let retries = 0;
+    const maxRetries = 2;
+
+    while (retries <= maxRetries) {
+      try {
+        response = await fetch(requestUrl, {
+          method,
+          headers: {
+            ...API_CONFIG.defaultHeaders,
+            ...(token || authToken ? { Authorization: `Bearer ${token || authToken}` } : {}),
+            ...(headers || {}),
+          },
+          body:   body ? JSON.stringify(body) : undefined,
+          signal: controller.signal,
+        });
+        
+        if (response.status >= 500 && response.status <= 599 && retries < maxRetries) {
+          retries++;
+          if (typeof __DEV__ !== 'undefined' && __DEV__) console.log(`[API Retry] ${retries}/${maxRetries} for ${requestUrl}`);
+          await new Promise(res => setTimeout(res, 1000 * Math.pow(2, retries))); // Exponential backoff
+          continue;
+        }
+        break; // Success or non-500 error
+      } catch (err) {
+        if (err.name === 'AbortError' || retries >= maxRetries) throw err;
+        retries++;
+        if (typeof __DEV__ !== 'undefined' && __DEV__) console.log(`[API Retry] Network error, retry ${retries}/${maxRetries}`);
+        await new Promise(res => setTimeout(res, 1000 * Math.pow(2, retries)));
+      }
+    }
 
     // Read as text first — handles empty bodies (204) and non-JSON errors gracefully
     const rawText = await response.text();
+    if (typeof __DEV__ !== 'undefined' && __DEV__) {
+      console.log(
+        '[API RESPONSE]',
+        response.status,
+        method,
+        requestUrl,
+        rawText ? rawText.slice(0, 300) : '(empty body)',
+      );
+    }
     let data = null;
     try {
       data = rawText ? JSON.parse(rawText) : null;
@@ -333,6 +378,16 @@ export const apiRequest = async ({ path, method = 'GET', body, headers, query, t
 
     if (!response.ok) {
       const message = extractErrorMessage(data, response.status);
+
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.warn('[API HTTP ERROR]', {
+          status: response.status,
+          method,
+          url: requestUrl,
+          message,
+          body: data,
+        });
+      }
 
       if (response.status === 401) {
         await notifyUnauthorized({ status: 401, message });
@@ -350,7 +405,14 @@ export const apiRequest = async ({ path, method = 'GET', body, headers, query, t
       throw new Error(`Request timed out. Check server URL: ${API_CONFIG.baseURL}`);
     }
     if (typeof __DEV__ !== 'undefined' && __DEV__) {
-      console.error('[API ERROR]', error.message);
+      console.warn('[API ERROR]', {
+        method,
+        path,
+        baseURL: API_CONFIG.baseURL,
+        message: error.message,
+        status: error.status,
+        data: error.data,
+      });
     }
     throw error;
   } finally {

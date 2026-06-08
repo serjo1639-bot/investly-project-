@@ -31,7 +31,7 @@ const AboutScreen = ({ navigation }) => {
           {
             icon: 'pulse-outline',
             title: 'متابعة مستمرة',
-            description: 'يمكن للمستخدم الانتقال بين الحساب والمشاريع والسلة والتفاصيل من خلال تنقل واضح ومتناسق داخل التطبيق.',
+            description: 'يمكن للمستخدم الانتقال بين الحساب والمشاريع واستثماراتي والتفاصيل من خلال تنقل واضح ومتناسق داخل التطبيق.',
           },
         ],
         footer: {
@@ -63,7 +63,7 @@ const AboutScreen = ({ navigation }) => {
           {
             icon: 'pulse-outline',
             title: 'Continuous follow-up',
-            description: 'Users can move smoothly between account, projects, cart, and detail pages through a consistent navigation flow.',
+            description: 'Users can move smoothly between account, projects, My Investments, and detail pages through a consistent navigation flow.',
           },
         ],
         footer: {

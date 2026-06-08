@@ -1,8 +1,8 @@
 /**
  * RegisterScreen.js — New user registration
  *
- * Collects: role, account type (individual / organization), name, phone,
- * email (optional), bio (optional), password, terms agreement.
+ * Collects: role, name, phone,
+ * email, bio (optional), password, terms agreement.
  *
  * Conditional fields:
  *   company name — required when role === 'owner' (legal entity for crowdfunding)
@@ -56,7 +56,20 @@ const Button = ({ title, onPress, style, loading, disabled, variant = 'solid' })
   </TouchableOpacity>
 );
 
-const InputField = ({ label, placeholder, value, onChange, keyboardType, icon, isAr, multiline = false, secureTextEntry = false }) => (
+const InputField = ({
+  label,
+  placeholder,
+  value,
+  onChange,
+  keyboardType,
+  icon,
+  isAr,
+  multiline = false,
+  secureTextEntry = false,
+  showSecureToggle = false,
+  secureVisible = false,
+  onToggleSecure,
+}) => (
   <View>
     <Text style={[styles.label, { textAlign: isAr ? 'right' : 'left' }]}>{label}</Text>
     <View style={[styles.inputWrap, { flexDirection: isAr ? 'row-reverse' : 'row' }, multiline && styles.inputWrapMultiline]}>
@@ -68,8 +81,17 @@ const InputField = ({ label, placeholder, value, onChange, keyboardType, icon, i
         onChangeText={onChange}
         keyboardType={keyboardType || 'default'}
         multiline={multiline}
-        secureTextEntry={secureTextEntry}
+        secureTextEntry={secureTextEntry && !secureVisible}
       />
+      {showSecureToggle ? (
+        <TouchableOpacity style={styles.secureToggle} onPress={onToggleSecure} activeOpacity={0.75}>
+          <Ionicons
+            name={secureVisible ? 'eye-off-outline' : 'eye-outline'}
+            size={20}
+            color={COLORS.textMuted}
+          />
+        </TouchableOpacity>
+      ) : null}
       <Ionicons name={icon} size={20} color={COLORS.textMuted} style={styles.inputIcon} />
     </View>
   </View>
@@ -91,10 +113,12 @@ const RegisterScreen = ({ navigation }) => {
   const [bio, setBio] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const requiresCompanyName = role === 'owner' || accountType === 'organization';
+  const requiresCompanyName = role === 'owner';
   const normalizedPhone = useMemo(() => `+218${phone.replace(/\D/g, '')}`, [phone]);
 
   const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -104,7 +128,7 @@ const RegisterScreen = ({ navigation }) => {
     && phone.replace(/\D/g, '').length >= 7
     && agreed
     && (!requiresCompanyName || companyName.trim())
-    && (!email || isValidEmail(email.trim()))
+    && isValidEmail(email.trim())
     && isPasswordValid
     && passwordsMatch;
 
@@ -118,7 +142,7 @@ const RegisterScreen = ({ navigation }) => {
         popup.warning(isAr ? 'تأكيد كلمة المرور غير مطابق' : 'Password confirmation does not match');
         return;
       }
-      if (email && !isValidEmail(email.trim())) {
+      if (!isValidEmail(email.trim())) {
         popup.warning(isAr ? 'يرجى إدخال إيميل صحيح' : 'Please enter a valid email');
         return;
       }
@@ -133,7 +157,7 @@ const RegisterScreen = ({ navigation }) => {
         phone: normalizedPhone,
         email: email.trim(),
         role,
-        type: accountType,
+        type: role === 'owner' ? 'organization' : 'individual',
         companyName: companyName.trim(),
         bio: bio.trim(),
         password,
@@ -228,7 +252,10 @@ const RegisterScreen = ({ navigation }) => {
                   key={option.key}
                   onPress={() => {
                     setRole(option.key);
-                    if (option.key === 'owner') setAccountType('organization');
+                    // Investor accounts are individuals; owner accounts are organizations.
+                    // Keeping this derived from the role avoids hidden state making
+                    // CompanyName required for investor registration.
+                    setAccountType(option.key === 'owner' ? 'organization' : 'individual');
                   }}
                   style={[styles.roleCard, active && styles.roleCardActive]}
                 >
@@ -243,23 +270,15 @@ const RegisterScreen = ({ navigation }) => {
             })}
           </View>
 
-          <Text style={[styles.label, { textAlign: isAr ? 'right' : 'left' }]}>{t('accountType')}</Text>
-          <View style={[styles.typeToggle, SCREEN.isCompactWidth && styles.typeToggleStack]}>
-            {['individual', 'organization'].map((type) => {
-              const active = accountType === type;
-              return (
-                <TouchableOpacity
-                  key={type}
-                  onPress={() => setAccountType(type)}
-                  style={[styles.typeBtn, active && styles.typeBtnActive]}
-                  disabled={role === 'owner' && type === 'individual'}
-                >
-                  <Text style={[styles.typeBtnText, active && styles.typeBtnTextActive]}>
-                    {type === 'individual' ? t('individual') : t('organization')}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+          <View style={styles.typeInfo}>
+            <Ionicons
+              name={role === 'owner' ? 'business-outline' : 'person-outline'}
+              size={18}
+              color={COLORS.primary}
+            />
+            <Text style={styles.typeInfoText}>
+              {role === 'owner' ? t('organization') : t('individual')}
+            </Text>
           </View>
 
           <InputField
@@ -335,6 +354,9 @@ const RegisterScreen = ({ navigation }) => {
             icon="lock-closed-outline"
             isAr={isAr}
             secureTextEntry
+            showSecureToggle
+            secureVisible={showPassword}
+            onToggleSecure={() => setShowPassword((value) => !value)}
           />
 
           <InputField
@@ -345,6 +367,9 @@ const RegisterScreen = ({ navigation }) => {
             icon="shield-checkmark-outline"
             isAr={isAr}
             secureTextEntry
+            showSecureToggle
+            secureVisible={showConfirmPassword}
+            onToggleSecure={() => setShowConfirmPassword((value) => !value)}
           />
 
           <View style={styles.hintsCard}>
@@ -513,10 +538,28 @@ const styles = StyleSheet.create({
   typeBtnActive: { backgroundColor: COLORS.primaryLight, borderColor: COLORS.primary },
   typeBtnText: { fontSize: FONTS.sm, color: COLORS.textSecondary, fontWeight: FONTS.medium },
   typeBtnTextActive: { color: COLORS.primaryDark, fontWeight: FONTS.semibold },
+  typeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.base,
+    marginBottom: SPACING.lg,
+  },
+  typeInfoText: {
+    fontSize: FONTS.sm,
+    color: COLORS.primaryDark,
+    fontWeight: FONTS.semibold,
+  },
   inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: RADIUS.base, paddingHorizontal: SPACING.base, marginBottom: SPACING.sm, borderWidth: 1, borderColor: COLORS.borderLight },
   inputWrapMultiline: { alignItems: 'flex-start', paddingTop: SPACING.md },
   input: { flex: 1, paddingVertical: SPACING.md, fontSize: FONTS.base, color: COLORS.textPrimary },
   inputMultiline: { minHeight: 96, textAlignVertical: 'top' },
+  secureToggle: { paddingHorizontal: SPACING.xs, paddingVertical: SPACING.sm },
   inputIcon: { marginHorizontal: SPACING.sm, marginTop: 2 },
   countryCode: { flexDirection: 'row', alignItems: 'center', paddingRight: SPACING.sm, borderRightWidth: 1, borderRightColor: COLORS.borderLight, marginRight: SPACING.sm },
   countryCodeAr: { paddingRight: 0, marginRight: 0, paddingLeft: SPACING.sm, marginLeft: SPACING.sm, borderRightWidth: 0, borderLeftWidth: 1, borderLeftColor: COLORS.borderLight },

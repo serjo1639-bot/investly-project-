@@ -1,13 +1,14 @@
 /**
- * useCart.js — Shopping cart context and hook
+ * useCart.js — My Investments context and hook
  *
- * The cart holds investment "items" — each item is:
- *   { project, amount, currency, minAmount }
+ * This small in-memory store powers the "My Investments" screen.
+ * Each item is either:
+ *   { status: 'saved', project, amount, currency, minAmount }
+ *   { status: 'invested', project, amount, currency, minAmount, investedAt }
  *
- * Cart state lives entirely in memory (no persistence).  When the user
- * navigates away or restarts the app the cart resets — this is intentional
- * because investment amounts are time-sensitive and the user should
- * consciously re-select them each session.
+ * State lives in memory and is cleared when the active role is not investor.
+ * That keeps this graduation-project version simple and prevents one role
+ * from seeing another role's local saved/invested list on the same device.
  *
  * Null-context fallback
  * ─────────────────────
@@ -36,13 +37,21 @@ export const useCart = () => {
   if (!context) {
     return {
       items:               [],
+      savedItems:          [],
+      investedItems:       [],
       addToCart:           () => {},
+      addSavedProject:     () => {},
+      toggleSavedProject:  () => {},
+      markProjectInvested: () => {},
       removeFromCart:      () => {},
+      removeSavedProject:  () => {},
       updateAmount:        () => {},
       clearCart:           () => {},
       totalAmount:         0,
       totalCount:          0,
       isInCart:            () => false,
+      isSaved:             () => false,
+      isInvested:          () => false,
       getItemByProjectId:  () => null,
     };
   }
@@ -55,7 +64,7 @@ export const CartProvider = ({ children }) => {
   const [items, setItems] = useState([]);
 
   /**
-   * Add a project to the cart or update its amount if already present.
+   * Add or update a project in the My Investments store.
    * Amount is always clamped to minAmount so the user can never invest below
    * the project's minimum — even if the UI passes a lower value.
    *
@@ -63,30 +72,79 @@ export const CartProvider = ({ children }) => {
    * @param {number} amount  - Requested investment amount
    * @param {object} meta    - Optional overrides: { minAmount, currency }
    */
-  const addToCart = (project, amount = 100, meta = {}) => {
+  const upsertProject = (project, amount = 100, meta = {}) => {
     const minAmount  = Number(meta.minAmount || project?.minInvestment || 5);
     const nextAmount = Math.max(minAmount, sanitizeAmount(amount, minAmount));
+    const nextStatus = meta.status || 'saved';
 
     setItems((prev) => {
       const existing = prev.find((item) => item.project.id === project.id);
 
       if (existing) {
-        // Project already in cart — update amount and currency only
+        // Keep invested projects invested unless this call explicitly changes status.
+        const status = meta.status || existing.status || 'saved';
         return prev.map((item) =>
           item.project.id === project.id
-            ? { ...item, amount: nextAmount, currency: meta.currency || item.currency || 'LYD', minAmount }
+            ? {
+                ...item,
+                project,
+                status,
+                amount: nextAmount,
+                currency: meta.currency || item.currency || 'LYD',
+                minAmount,
+                investedAt: status === 'invested' ? (item.investedAt || new Date().toISOString()) : item.investedAt,
+              }
             : item
         );
       }
 
-      // New item — append to the end
+      // New item — append to the end so the newest saved project is easy to find.
       return [
         ...prev,
         {
           project,
+          status:   nextStatus,
           amount:   nextAmount,
           currency: meta.currency || project?.currencyCode || 'LYD',
           minAmount,
+          investedAt: nextStatus === 'invested' ? new Date().toISOString() : null,
+        },
+      ];
+    });
+  };
+
+  // Backwards-compatible name used by existing screens; now it means "save".
+  const addToCart = (project, amount = 100, meta = {}) =>
+    upsertProject(project, amount, { ...meta, status: meta.status || 'saved' });
+
+  const addSavedProject = addToCart;
+
+  const markProjectInvested = (project, amount = 100, meta = {}) =>
+    upsertProject(project, amount, { ...meta, status: 'invested' });
+
+  const toggleSavedProject = (project, amount = 100, meta = {}) => {
+    const projectId = project?.id;
+    if (!projectId) return;
+
+    setItems((prev) => {
+      const existing = prev.find((item) => item.project.id === projectId);
+      if (existing?.status === 'saved') {
+        return prev.filter((item) => item.project.id !== projectId);
+      }
+      if (existing?.status === 'invested') {
+        // Already invested projects stay tracked; the heart cannot remove them.
+        return prev;
+      }
+      const minAmount = Number(meta.minAmount || project?.minInvestment || 5);
+      return [
+        ...prev,
+        {
+          project,
+          status: 'saved',
+          amount: Math.max(minAmount, sanitizeAmount(amount, minAmount)),
+          currency: meta.currency || project?.currencyCode || 'LYD',
+          minAmount,
+          investedAt: null,
         },
       ];
     });
@@ -94,6 +152,10 @@ export const CartProvider = ({ children }) => {
 
   const removeFromCart = (projectId) => {
     setItems((prev) => prev.filter((item) => item.project.id !== projectId));
+  };
+
+  const removeSavedProject = (projectId) => {
+    setItems((prev) => prev.filter((item) => item.project.id !== projectId || item.status !== 'saved'));
   };
 
   /**
@@ -113,22 +175,34 @@ export const CartProvider = ({ children }) => {
   const clearCart = () => setItems([]);
 
   // Derived values — recomputed on every render (cheap because cart is small)
-  const totalAmount         = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  const savedItems          = items.filter((item) => item.status !== 'invested');
+  const investedItems       = items.filter((item) => item.status === 'invested');
+  const totalAmount         = investedItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   const totalCount          = items.length;
   const isInCart            = (projectId) => items.some((item) => item.project.id === projectId);
+  const isSaved             = (projectId) => items.some((item) => item.project.id === projectId && item.status !== 'invested');
+  const isInvested          = (projectId) => items.some((item) => item.project.id === projectId && item.status === 'invested');
   const getItemByProjectId  = (projectId) => items.find((item) => item.project.id === projectId) || null;
 
   return (
     <CartContext.Provider
       value={{
         items,
+        savedItems,
+        investedItems,
         addToCart,
+        addSavedProject,
+        toggleSavedProject,
+        markProjectInvested,
         removeFromCart,
+        removeSavedProject,
         updateAmount,
         clearCart,
         totalAmount,
         totalCount,
         isInCart,
+        isSaved,
+        isInvested,
         getItemByProjectId,
       }}
     >

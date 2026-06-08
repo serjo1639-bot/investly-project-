@@ -27,8 +27,8 @@
     },
     "extra": {
       "eas": {},
-      "useMockApi": true,
-      "apiBaseUrl": ""
+      "useMockApi": false,
+      "apiBaseUrl": "http://localhost:5000/api"
     }
   }
 }

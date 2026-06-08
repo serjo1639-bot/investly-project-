@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOWS, SCREEN } from '../constants/theme';
 import { useAuth } from '../hooks/useAuth';
 import { useTopPopup } from '../hooks/useTopPopup';
+import { useTheme } from '../hooks/useTheme';
 
 const ACCOUNT_ACCENT = {
   primary: COLORS.primary,
@@ -101,6 +102,7 @@ const AccountScreen = ({ navigation }) => {
   const { user, isLoggedIn, logout, activeRole } = useAuth();
   const popup = useTopPopup();
   const insets = useSafeAreaInsets();
+  const { isDarkMode, toggleTheme, colors } = useTheme();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(20)).current;
@@ -131,6 +133,16 @@ const AccountScreen = ({ navigation }) => {
   const projectsCount = user?.projectsCount ?? 0;
 
   const commonItems = [
+    {
+      icon: isDarkMode ? 'sunny-outline' : 'moon-outline',
+      label: isAr ? 'الوضع الداكن' : 'Dark Theme',
+      value: isDarkMode ? (isAr ? 'مفعل' : 'On') : (isAr ? 'غير مفعل' : 'Off'),
+      iconColor: {
+        color: colors.primary,
+        backgroundColor: isDarkMode ? colors.surface : ACCOUNT_ACCENT.primarySoft,
+      },
+      onPress: toggleTheme,
+    },
     {
       icon: 'wallet-outline',
       label: isAr ? 'شحن الرصيد' : 'Recharge Wallet',
@@ -193,8 +205,12 @@ const AccountScreen = ({ navigation }) => {
 
   if (!isLoggedIn) {
     return (
-      <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" translucent={false} />
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <StatusBar
+          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+          backgroundColor={isDarkMode ? colors.background : '#ffffff'}
+          translucent={false}
+        />
         <AccountTopBar
           title={t('account')}
           onMenuPress={() => navigation.openDrawer()}
@@ -215,8 +231,12 @@ const AccountScreen = ({ navigation }) => {
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" translucent={false} />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+        backgroundColor={isDarkMode ? colors.background : '#ffffff'}
+        translucent={false}
+      />
       <AccountTopBar
         title={activeRole === 'owner' ? (isAr ? 'إعدادات الحساب' : 'Account Settings') : t('account')}
         onMenuPress={() => navigation.openDrawer()}

@@ -83,7 +83,7 @@ const DrawerContent = (props) => {
       ]
     : [
         { icon: 'leaf-outline', label: isAr ? 'مشاريع الاستثمار' : 'Investment Projects', screen: 'Projects' },
-        { icon: 'bag-outline', label: isAr ? 'السلة' : 'Cart', screen: 'Cart' },
+        { icon: 'heart-outline', label: isAr ? 'استثماراتي' : 'My Investments', screen: 'Cart' },
         { icon: 'person-outline', label: isAr ? 'الحساب' : 'Account', screen: 'Account' },
         ...(!isLoggedIn ? [{ icon: 'log-in-outline', label: isAr ? 'تسجيل الدخول' : 'Login', screen: 'Login' }] : []),
       ];

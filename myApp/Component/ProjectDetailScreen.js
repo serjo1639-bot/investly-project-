@@ -8,9 +8,9 @@
  * so the view counter increments without blocking the UI.
  *
  * Role-aware buttons:
- *   investor → "Invest Now" + "Add to Cart"
- *   owner    → view-only (no invest buttons shown)
- *   guest    → "Invest Now" redirects to Login
+ *   investor → "Invest Now" + "Save/Unsave"
+ *   owner    → can invest and can still create projects elsewhere
+ *   guest    → view-only until login as investor
  *
  * Hard-coded value:
  *   '22' in `accent + '22'` on StatPill — appends hex alpha 34 % opacity
@@ -29,6 +29,7 @@ import { COLORS, FONTS, SPACING, RADIUS, SHADOWS, SCREEN, responsiveHeight } fro
 import { recordProjectView, resolveProjectImage } from '../services/api';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
+import { useTopPopup } from '../hooks/useTopPopup';
 
 const fmt = (v) => `${Number(v || 0).toLocaleString()} LYD`;
 
@@ -53,11 +54,12 @@ export default function ProjectDetailScreen({ route, navigation }) {
   const { t, i18n } = useTranslation();
   const isAr   = i18n.language === 'ar';
   const insets = useSafeAreaInsets();
-  const { isInCart, getItemByProjectId } = useCart();
+  const { toggleSavedProject, isSaved, isInvested, getItemByProjectId } = useCart();
   const { activeRole } = useAuth();
+  const popup = useTopPopup();
 
   const isOwner   = activeRole === 'owner';
-  const canInvest = !isOwner;
+  const canInvest = activeRole === 'investor' || activeRole === 'owner';
 
   const title         = isAr ? project.titleAr || project.title : project.titleEn || project.title;
   const city          = isAr ? project.cityAr  || project.city  : project.cityEn  || project.city;
@@ -68,7 +70,9 @@ export default function ProjectDetailScreen({ route, navigation }) {
   const raised    = Number(project.raised || 0);
   const remaining = Math.max(0, goal - raised);
   const percent   = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
-  const inCart    = isInCart(project.id);
+  const isProjectSaved    = isSaved(project.id);
+  const isProjectInvested = isInvested(project.id);
+  const isTracked         = isProjectSaved || isProjectInvested;
   const cartItem  = getItemByProjectId(project.id);
   const imgSrc    = resolveProjectImage(project.image);
 
@@ -81,6 +85,17 @@ export default function ProjectDetailScreen({ route, navigation }) {
     } else {
       navigation.navigate && navigation.navigate('Contribution');
     }
+  };
+
+  const toggleSaveProject = () => {
+    const amount = Number(project.minInvestment || 5);
+    toggleSavedProject(project, amount, { minAmount: amount, currency: project.currencyCode || 'LYD' });
+    popup.success(
+      isProjectSaved
+        ? (isAr ? 'تم إلغاء حفظ المشروع' : 'Project unsaved')
+        : (isAr ? 'تم حفظ المشروع في استثماراتي' : 'Project saved to My Investments'),
+      { title: isAr ? 'استثماراتي' : 'My Investments' },
+    );
   };
 
   return (
@@ -107,15 +122,15 @@ export default function ProjectDetailScreen({ route, navigation }) {
 
           {canInvest && (
             <TouchableOpacity
-              style={[styles.navBtn, inCart && styles.navBtnCart]}
+              style={[styles.navBtn, isTracked && styles.navBtnCart]}
               onPress={() => navigation.navigate && navigation.navigate('Cart')}
             >
-              <Ionicons name={inCart ? 'bag-check' : 'bag-outline'} size={20} color={COLORS.white} />
-              {inCart && <View style={styles.cartDot} />}
+              <Ionicons name={isTracked ? 'heart' : 'heart-outline'} size={20} color={COLORS.white} />
+              {isTracked && <View style={styles.cartDot} />}
             </TouchableOpacity>
           )}
 
-          {isOwner && (
+          {isOwner && !canInvest && (
             <View style={styles.ownerBadge}>
               <Ionicons name="shield-checkmark-outline" size={13} color={COLORS.teal} />
               <Text style={styles.ownerBadgeTxt}>{isAr ? 'صاحب مشروع' : 'Owner'}</Text>
@@ -214,16 +229,18 @@ export default function ProjectDetailScreen({ route, navigation }) {
             </InfoCard>
           )}
 
-          {/* ── Cart status banner ──────────────────────────────────── */}
+          {/* ── My Investments status banner ─────────────────────────── */}
           {canInvest && cartItem ? (
             <InfoCard style={styles.cartStatusCard}>
               <View style={[styles.cartStatusRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
                 <View style={styles.cartStatusIcon}>
-                  <Ionicons name="bag-check-outline" size={18} color={COLORS.teal} />
+                  <Ionicons name={isProjectInvested ? 'checkmark-circle-outline' : 'heart'} size={18} color={COLORS.teal} />
                 </View>
                 <View style={{ flex: 1, marginHorizontal: SPACING.sm }}>
                   <Text style={[{ textAlign: isAr ? 'right' : 'left' }, styles.cartStatusLbl]}>
-                    {isAr ? 'مُضاف للسلة' : 'In Cart'}
+                    {isProjectInvested
+                      ? (isAr ? 'ضمن المشاريع المستثمر بها' : 'In Invested Projects')
+                      : (isAr ? 'محفوظ في استثماراتي' : 'Saved in My Investments')}
                   </Text>
                   <Text style={[{ textAlign: isAr ? 'right' : 'left' }, styles.cartStatusAmt]}>
                     {fmt(cartItem.amount)}
@@ -233,7 +250,7 @@ export default function ProjectDetailScreen({ route, navigation }) {
                   style={styles.cartStatusBtn}
                   onPress={() => navigation.navigate && navigation.navigate('Cart')}
                 >
-                  <Text style={styles.cartStatusBtnTxt}>{isAr ? 'السلة' : 'Cart'}</Text>
+                  <Text style={styles.cartStatusBtnTxt}>{isAr ? 'استثماراتي' : 'My Investments'}</Text>
                 </TouchableOpacity>
               </View>
             </InfoCard>
@@ -301,27 +318,29 @@ export default function ProjectDetailScreen({ route, navigation }) {
                 </LinearGradient>
               </TouchableOpacity>
 
-              {/* Secondary: Add to Cart / View Cart */}
+              {/* Secondary: Save / Unsave */}
               <TouchableOpacity
-                style={[styles.secondaryBtn, inCart && styles.secondaryBtnCart]}
+                style={[styles.secondaryBtn, isTracked && styles.secondaryBtnCart]}
                 onPress={() => {
-                  if (inCart) {
+                  if (isProjectInvested) {
                     navigation.navigate && navigation.navigate('Cart');
                   } else {
-                    navigateToContribution();
+                    toggleSaveProject();
                   }
                 }}
                 activeOpacity={0.88}
               >
                 <Ionicons
-                  name={inCart ? 'bag-check-outline' : 'bag-add-outline'}
+                  name={isTracked ? 'heart' : 'heart-outline'}
                   size={18}
-                  color={inCart ? COLORS.teal : COLORS.primary}
+                  color={isTracked ? COLORS.teal : COLORS.primary}
                 />
-                <Text style={[styles.secondaryBtnText, inCart && { color: COLORS.teal }]}>
-                  {inCart
-                    ? (isAr ? 'عرض السلة' : 'View Cart')
-                    : (isAr ? 'أضف للسلة' : 'Add to Cart')}
+                <Text style={[styles.secondaryBtnText, isTracked && { color: COLORS.teal }]}>
+                  {isProjectInvested
+                    ? (isAr ? 'عرض استثماراتي' : 'View My Investments')
+                    : isProjectSaved
+                      ? (isAr ? 'إلغاء الحفظ' : 'Unsave Project')
+                      : (isAr ? 'حفظ للاستثمار لاحقا' : 'Save for Later')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -533,7 +552,7 @@ const styles = StyleSheet.create({
     flex: 1, textAlign: 'center',
   },
 
-  // Secondary "Add to Cart / View Cart" — full-width outline, rounded corners
+  // Secondary "Save / View My Investments" — full-width outline, rounded corners
   secondaryBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: SPACING.sm,

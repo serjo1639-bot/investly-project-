@@ -642,9 +642,16 @@ export default function AddProjectScreen({ navigation }) {
       );
       setTimeout(() => navigation.navigate('OwnerDashboard'), 350);
 
-    } catch {
+    } catch (error) {
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.warn('[PROJECT SUBMIT ERROR]', {
+          message: error?.message,
+          status: error?.status,
+          data: error?.data,
+        });
+      }
       popup.error(
-        isAr ? 'حدث خطأ أثناء إرسال المشروع، يرجى المحاولة مجدداً' : 'Failed to submit project. Please try again.',
+        error?.message || (isAr ? 'حدث خطأ أثناء إرسال المشروع، يرجى المحاولة مجدداً' : 'Failed to submit project. Please try again.'),
         { title: t('error') },
       );
     } finally {

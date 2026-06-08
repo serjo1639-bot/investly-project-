@@ -6,6 +6,7 @@ import i18n from './i18n';
 import { AuthProvider } from './hooks/useAuth';
 import { CartProvider } from './hooks/useCart';
 import { TopPopupProvider } from './hooks/useTopPopup';
+import { ThemeProvider, useTheme } from './hooks/useTheme';
 import AppNavigator from './Component/AppNavigator';
 
 // Prevent text from growing disproportionately when the user increases system font size
@@ -16,20 +17,34 @@ export default function App() {
   return (
     <I18nextProvider i18n={i18n}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <CartProvider>
-            <TopPopupProvider>
-              <View style={styles.container}>
-                <AppNavigator />
-                <StatusBar barStyle="dark-content" backgroundColor="#000000" translucent={false} />
-              </View>
-            </TopPopupProvider>
-          </CartProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <CartProvider>
+              <TopPopupProvider>
+                <AppShell />
+              </TopPopupProvider>
+            </CartProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </SafeAreaProvider>
     </I18nextProvider>
   );
 }
+
+const AppShell = () => {
+  const { colors, isDarkMode } = useTheme();
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <AppNavigator />
+      <StatusBar
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.background}
+        translucent={false}
+      />
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {

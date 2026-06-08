@@ -26,7 +26,7 @@ const FAQScreen = ({ navigation }) => {
           {
             icon: 'cash-outline',
             title: 'كيف أبدأ بالمساهمة في مشروع؟',
-            description: 'يمكنك تصفح المشاريع، فتح التفاصيل، ثم إضافة المشروع إلى السلة أو المتابعة حسب آلية الاستثمار المعتمدة داخل التطبيق.',
+            description: 'يمكنك تصفح المشاريع، فتح التفاصيل، ثم حفظ المشروع في استثماراتي أو المتابعة حسب آلية الاستثمار المعتمدة داخل التطبيق.',
           },
           {
             icon: 'card-outline',
@@ -59,7 +59,7 @@ const FAQScreen = ({ navigation }) => {
           {
             icon: 'cash-outline',
             title: 'How do I start contributing?',
-            description: 'Browse projects, open the details, then add the project to the cart or continue through the supported flow.',
+            description: 'Browse projects, open the details, then save the project to My Investments or continue through the supported flow.',
           },
           {
             icon: 'card-outline',

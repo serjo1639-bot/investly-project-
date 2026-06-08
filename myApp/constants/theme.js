@@ -95,37 +95,56 @@ export const SCREEN = {
 };
 
 // ─── COLORS ───────────────────────────────────────────────────────────────────
-export const COLORS = {
-  // ── Brand blues ───────────────────────────────────────────────────────────
-  primary:      '#4361EE',   // main CTA, active icons, highlighted text
-  primaryDark:  '#1A237E',   // header backgrounds, gradient start
-  primaryLight: '#DDE4FF',   // light backgrounds, hover states
+export const darkColors = {
+  primary:      '#D2AF26',
+  primaryDark:  '#A68A1E',
+  primaryLight: '#2A2412',
+  teal:         '#00B4A0',
+  tealLight:    '#C8F5F0',
+  tealDark:     '#007A6E',
+  amber:        '#F59E0B',
+  amberLight:   '#FEF3C7',
+  background:     '#0F1115',
+  backgroundDark: '#0A0A0A',
+  surface:        '#1A1D24',
+  textPrimary:   '#FFFFFF',
+  textSecondary: '#A0A6B2',
+  textMuted:     '#A0A6B2',
+  textLight:     '#4D4D4D',
+  border:      '#2C313A',
+  borderLight: '#2C313A',
+  danger:       '#EF4444',
+  dangerLight:  '#4A1515',
+  success:      '#22C55E',
+  successLight: '#0E3A2A',
+  warning:      '#F59E0B',
+  warningLight: '#4A3408',
+  info:         '#0EA5E9',
+  infoLight:    '#0A374F',
+  white:   '#FFFFFF',
+  black:   '#000000',
+  overlay: 'rgba(0, 0, 0, 0.7)',
+  shimmer: '#2A2A2A',
+};
 
-  // ── Teal accent — used for positive financial figures & success states ────
+export const lightColors = {
+  primary:      '#4361EE',
+  primaryDark:  '#1A237E',
+  primaryLight: '#DDE4FF',
   teal:      '#00B4A0',
   tealLight: '#C8F5F0',
   tealDark:  '#007A6E',
-
-  // ── Amber — used for warnings and monetary highlights ─────────────────────
   amber:      '#F59E0B',
   amberLight: '#FEF3C7',
-
-  // ── Surfaces ──────────────────────────────────────────────────────────────
-  background:     '#EFF1FF',  // lavender-tinted app background (replaces plain white)
-  backgroundDark: '#E2E8FF',  // slightly darker — used to separate sections
-  surface:        '#FFFFFF',  // card/modal background — pops against background
-
-  // ── Text ─────────────────────────────────────────────────────────────────
-  textPrimary:   '#0D1B4B',  // headings, primary labels
-  textSecondary: '#374375',  // secondary labels, descriptions
-  textMuted:     '#8892AD',  // hints, placeholders, inactive tab labels
-  textLight:     '#BDC5DC',  // very subtle details
-
-  // ── Borders ───────────────────────────────────────────────────────────────
+  background:     '#EFF1FF',
+  backgroundDark: '#E2E8FF',
+  surface:        '#FFFFFF',
+  textPrimary:   '#0D1B4B',
+  textSecondary: '#374375',
+  textMuted:     '#8892AD',
+  textLight:     '#BDC5DC',
   border:      '#C8D3F5',
   borderLight: '#E4EBFF',
-
-  // ── Semantic ──────────────────────────────────────────────────────────────
   danger:       '#EF4444',
   dangerLight:  '#FEE2E2',
   success:      '#10B981',
@@ -134,13 +153,13 @@ export const COLORS = {
   warningLight: '#FEF3C7',
   info:         '#0EA5E9',
   infoLight:    '#E0F2FE',
-
-  // ── Base ──────────────────────────────────────────────────────────────────
   white:   '#FFFFFF',
   black:   '#000000',
-  overlay: 'rgba(13, 27, 75, 0.52)',  // dark navy overlay for modals/drawer
-  shimmer: '#E8EDFF',                 // skeleton loading shimmer color
+  overlay: 'rgba(13, 27, 75, 0.52)',
+  shimmer: '#E8EDFF',
 };
+
+export const COLORS = lightColors; // Temporary fallback
 
 // ─── FONTS ────────────────────────────────────────────────────────────────────
 // Sizes scale responsively; weight tokens are plain string values for fontWeight.
@@ -186,49 +205,22 @@ export const RADIUS = {
 // ─── SHADOWS ──────────────────────────────────────────────────────────────────
 // iOS uses shadow* props; Android uses elevation.
 // Colors are tinted with the brand navy so shadows feel cohesive.
-export const SHADOWS = {
-  sm: {
-    shadowColor:   '#4361EE',
-    shadowOffset:  { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius:  6,
-    elevation:     2,
-  },
-  md: {
-    shadowColor:   '#1A237E',
-    shadowOffset:  { width: 0, height: 4 },
-    shadowOpacity: 0.10,
-    shadowRadius:  12,
-    elevation:     4,
-  },
-  lg: {
-    shadowColor:   '#1A237E',
-    shadowOffset:  { width: 0, height: 8 },
-    shadowOpacity: 0.14,
-    shadowRadius:  20,
-    elevation:     7,
-  },
-  xl: {
-    shadowColor:   '#1A237E',
-    shadowOffset:  { width: 0, height: 14 },
-    shadowOpacity: 0.20,
-    shadowRadius:  28,
-    elevation:     10,
-  },
-  // Intense blue glow — used on CTA buttons
-  glow: {
-    shadowColor:   '#4361EE',
-    shadowOffset:  { width: 0, height: 4 },
-    shadowOpacity: 0.32,
-    shadowRadius:  14,
-    elevation:     9,
-  },
-  // Standard button lift
-  button: {
-    shadowColor:   '#4361EE',
-    shadowOffset:  { width: 0, height: 4 },
-    shadowOpacity: 0.28,
-    shadowRadius:  10,
-    elevation:     5,
-  },
+export const SHADOWS_DARK = {
+  sm: { shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 2 },
+  md: { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 4 },
+  lg: { shadowColor: '#000000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.5, shadowRadius: 20, elevation: 7 },
+  xl: { shadowColor: '#000000', shadowOffset: { width: 0, height: 14 }, shadowOpacity: 0.6, shadowRadius: 28, elevation: 10 },
+  glow: { shadowColor: '#D2AF26', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 14, elevation: 9 },
+  button: { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 5 },
 };
+
+export const SHADOWS_LIGHT = {
+  sm: { shadowColor: '#4361EE', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2 },
+  md: { shadowColor: '#1A237E', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.10, shadowRadius: 12, elevation: 4 },
+  lg: { shadowColor: '#1A237E', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.14, shadowRadius: 20, elevation: 7 },
+  xl: { shadowColor: '#1A237E', shadowOffset: { width: 0, height: 14 }, shadowOpacity: 0.20, shadowRadius: 28, elevation: 10 },
+  glow: { shadowColor: '#4361EE', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.32, shadowRadius: 14, elevation: 9 },
+  button: { shadowColor: '#4361EE', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 10, elevation: 5 },
+};
+
+export const SHADOWS = SHADOWS_LIGHT; // Temporary fallback

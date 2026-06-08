@@ -1,7 +1,7 @@
 /**
- * LoginScreen.js — Email + password login
+ * LoginScreen.js — Email/phone + password login
  *
- * Flow: role selection → email input → password input → submit
+ * Flow: role selection → email/phone input → password input → submit
  *
  * Hard-coded values:
  *   6 — minimum password length
@@ -50,27 +50,38 @@ const ROLE_OPTIONS = [
 ];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^\+?\d[\d\s-]{6,}$/;
+
+const normalizePhone = (value = '') => {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('218')) return `+${digits}`;
+  return `+218${digits}`;
+};
 
 const LoginScreen = ({ navigation }) => {
   const { t, i18n }    = useTranslation();
   const isAr           = i18n.language === 'ar';
   const insets         = useSafeAreaInsets();
-  const { loginWithEmail } = useAuth();
+  const { loginWithEmail, loginWithPassword } = useAuth();
   const popup          = useTopPopup();
 
-  const [email,        setEmail]        = useState('');
+  const [identifier,   setIdentifier]   = useState('');
   const [password,     setPassword]     = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading,      setLoading]      = useState(false);
   const [role,         setRole]         = useState('investor');
-  const [emailFocused, setEmailFocused] = useState(false);
+  const [identifierFocused, setIdentifierFocused] = useState(false);
   const [passFocused,  setPassFocused]  = useState(false);
 
-  const canSubmit = EMAIL_REGEX.test(email.trim()) && password.length >= 6;
+  const trimmedIdentifier = identifier.trim();
+  const isEmailLogin = EMAIL_REGEX.test(trimmedIdentifier);
+  const isPhoneLogin = PHONE_REGEX.test(trimmedIdentifier);
+  const canSubmit = (isEmailLogin || isPhoneLogin) && password.length >= 6;
 
   const handleLogin = async () => {
-    if (!EMAIL_REGEX.test(email.trim())) {
-      popup.warning(isAr ? 'يرجى إدخال بريد إلكتروني صحيح' : 'Please enter a valid email address');
+    if (!isEmailLogin && !isPhoneLogin) {
+      popup.warning(isAr ? 'يرجى إدخال بريد إلكتروني أو رقم هاتف صحيح' : 'Please enter a valid email or phone number');
       return;
     }
     if (password.length < 6) {
@@ -82,7 +93,11 @@ const LoginScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
-      await loginWithEmail({ email: email.trim().toLowerCase(), password, role });
+      if (isEmailLogin) {
+        await loginWithEmail({ email: trimmedIdentifier.toLowerCase(), password, role });
+      } else {
+        await loginWithPassword({ phone: normalizePhone(trimmedIdentifier), password, role });
+      }
       navigation.replace && navigation.replace('Home');
     } catch (error) {
       const msg = error?.message || '';
@@ -91,7 +106,7 @@ const LoginScreen = ({ navigation }) => {
           title:       isAr ? 'حساب غير موجود' : 'Account not found',
           message:     isAr
             ? 'هذا البريد غير مسجل. هل تريد إنشاء حساب جديد؟'
-            : 'This email is not registered. Would you like to create an account?',
+            : 'This account is not registered. Would you like to create an account?',
           cancelText:  isAr ? 'إلغاء' : 'Cancel',
           confirmText: isAr ? 'تسجيل' : 'Register',
           onConfirm:   () => navigation.navigate('Register'),
@@ -213,34 +228,34 @@ const LoginScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* ── Email input ── */}
+        {/* ── Email or phone input ── */}
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { textAlign: isAr ? 'right' : 'left' }]}>
-            {t('emailAddress')}
+            {isAr ? 'البريد الإلكتروني أو رقم الهاتف' : 'Email or phone'}
           </Text>
           <View style={[
             styles.inputShell,
             { flexDirection: isAr ? 'row-reverse' : 'row' },
-            emailFocused && styles.inputShellFocused,
+            identifierFocused && styles.inputShellFocused,
           ]}>
             <View style={styles.emailIconWrap}>
               <Ionicons
-                name="mail-outline"
+                name={isEmailLogin ? 'mail-outline' : 'phone-portrait-outline'}
                 size={20}
-                color={emailFocused ? COLORS.primary : COLORS.textMuted}
+                color={identifierFocused ? COLORS.primary : COLORS.textMuted}
               />
             </View>
             <TextInput
               style={[styles.input, styles.inputFlex, { textAlign: isAr ? 'right' : 'left' }]}
-              placeholder={t('emailPlaceholderLogin')}
+              placeholder={isAr ? 'email@example.com أو 91 234 5678' : 'email@example.com or 91 234 5678'}
               placeholderTextColor={COLORS.textMuted}
-              value={email}
-              onChangeText={setEmail}
+              value={identifier}
+              onChangeText={setIdentifier}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
-              onFocus={() => setEmailFocused(true)}
-              onBlur={() => setEmailFocused(false)}
+              onFocus={() => setIdentifierFocused(true)}
+              onBlur={() => setIdentifierFocused(false)}
             />
           </View>
         </View>

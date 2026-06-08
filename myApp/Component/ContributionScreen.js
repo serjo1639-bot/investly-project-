@@ -1,7 +1,7 @@
 /**
  * ContributionScreen.js — Investment amount selector
  *
- * Shown before the cart: the user picks how much to invest in one project.
+ * Shown before investing: the user picks how much to invest in one project.
  *
  * Amount presets:
  *   [minAmount, minAmount × 5, minAmount × 20]
@@ -31,7 +31,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOWS, SCREEN, responsiveHeight } from '../constants/theme';
-import { createContributionDraft, resolveProjectImage } from '../services/api';
+import { buildInvestmentPayload, createContributionDraft, investmentAPI, resolveProjectImage } from '../services/api';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
 import { useTopPopup } from '../hooks/useTopPopup';
@@ -57,21 +57,22 @@ const ContributionScreen = ({ route, navigation }) => {
   const isAr = i18n.language === 'ar';
   const { width } = useWindowDimensions();
   const stackPresets = width < 390 || SCREEN.fontScale > 1.08;
-  const { addToCart, isInCart } = useCart();
+  const { addSavedProject, isSaved, isInvested, markProjectInvested } = useCart();
   const { user, activeRole } = useAuth();
   const popup = useTopPopup();
   const scrollRef = useRef(null);
   const inputRef  = useRef(null);
 
-  // Owners cannot invest — redirect message
-  const isOwner = activeRole === 'owner';
+  // Investors and entrepreneurs can both create investment entries.
+  const canInvest = activeRole === 'investor' || activeRole === 'owner';
 
   const walletBalance = Number(user?.walletBalance || 0);
 
   const title     = isAr ? project.titleAr || project.title : project.titleEn || project.title;
   const remaining = Math.max(Number(project.goal || 0) - Number(project.raised || 0), 0);
   const minAmount = Number(project.minInvestment || 5);
-  const inCart    = isInCart(project.id);
+  const isProjectSaved    = isSaved(project.id);
+  const isProjectInvested = isInvested(project.id);
 
   const presets = useMemo(() => {
     const base = [minAmount, Math.max(minAmount, minAmount * 5), Math.max(minAmount, minAmount * 20)];
@@ -80,6 +81,7 @@ const ContributionScreen = ({ route, navigation }) => {
 
   const [selectedAmount, setSelectedAmount] = useState(presets[1] || minAmount);
   const [customAmount,   setCustomAmount]   = useState(String(presets[1] || minAmount));
+  const [isSubmitting,   setIsSubmitting]   = useState(false);
 
   const handleSelectPreset = (amount) => {
     setSelectedAmount(amount);
@@ -96,7 +98,7 @@ const ContributionScreen = ({ route, navigation }) => {
 
   const hasSufficientBalance = walletBalance >= resolveAmount();
 
-  const submitToCart = (goToCart = false) => {
+  const saveForLater = () => {
     const amount = resolveAmount();
     if (amount < minAmount) {
       popup.warning(
@@ -107,16 +109,41 @@ const ContributionScreen = ({ route, navigation }) => {
       return;
     }
     const draft = createContributionDraft(project, amount);
-    addToCart(project, draft.amount, { currency: draft.currency, minAmount: draft.minAmount });
+    addSavedProject(project, draft.amount, { currency: draft.currency, minAmount: draft.minAmount });
 
-    if (goToCart) {
-      navigation.navigate && navigation.navigate('Cart');
+    popup.success(
+      isAr ? 'تم حفظ المشروع في استثماراتي' : 'Project saved to My Investments',
+      { title: isAr ? 'تم الحفظ' : 'Saved' },
+    );
+  };
+
+  const submitInvestment = async () => {
+    const amount = resolveAmount();
+    if (amount < minAmount) {
+      popup.warning(
+        isAr
+          ? `الحد الأدنى للمساهمة هو ${formatCurrency(minAmount)}`
+          : `Minimum contribution is ${formatCurrency(minAmount)}`,
+      );
       return;
     }
-    popup.success(
-      isAr ? 'تمت إضافة قيمة المساهمة إلى السلة' : 'Contribution amount added to cart',
-      { title: isAr ? 'تمت الإضافة' : 'Added' },
-    );
+
+    const draft = createContributionDraft(project, amount);
+    setIsSubmitting(true);
+    try {
+      // Real mode uses the backend investment endpoints for investors/owners.
+      await investmentAPI.confirmInvestment(buildInvestmentPayload([{ project, ...draft }]));
+      markProjectInvested(project, draft.amount, { currency: draft.currency, minAmount: draft.minAmount });
+      popup.success(
+        isAr ? 'تم تسجيل استثمارك بنجاح' : 'Your investment was recorded successfully',
+        { title: isAr ? 'استثماراتي' : 'My Investments' },
+      );
+      navigation.navigate && navigation.navigate('Cart');
+    } catch {
+      popup.error(isAr ? 'تعذر تنفيذ الاستثمار. حاول مرة أخرى.' : 'Could not complete the investment. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const focusAmountInput = () => {
@@ -129,7 +156,7 @@ const ContributionScreen = ({ route, navigation }) => {
   };
 
   // ── Owner guard ───────────────────────────────────────────────────────────
-  if (isOwner) {
+  if (!canInvest) {
     return (
       <View style={styles.container}>
         <View style={[styles.heroCard, { height: responsiveHeight(200, { min: 170, max: 220 }) }]}>
@@ -230,12 +257,14 @@ const ContributionScreen = ({ route, navigation }) => {
 
           <View style={styles.divider} />
 
-          {/* Already in cart notice */}
-          {inCart && (
+          {/* Saved / invested notice */}
+          {(isProjectSaved || isProjectInvested) && (
             <View style={[styles.inCartNotice, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
-              <Ionicons name="bag-check-outline" size={16} color={COLORS.teal} />
+              <Ionicons name={isProjectInvested ? 'checkmark-circle-outline' : 'heart'} size={16} color={COLORS.teal} />
               <Text style={styles.inCartTxt}>
-                {isAr ? 'هذا المشروع موجود في سلتك بالفعل. ستُحدَّث القيمة.' : 'Already in cart — amount will be updated.'}
+                {isProjectInvested
+                  ? (isAr ? 'هذا المشروع موجود ضمن المشاريع المستثمر بها.' : 'This project is already in Invested Projects.')
+                  : (isAr ? 'هذا المشروع محفوظ في استثماراتي. يمكن تحديث القيمة قبل الاستثمار.' : 'This project is saved in My Investments. You can update the amount before investing.')}
               </Text>
             </View>
           )}
@@ -329,9 +358,9 @@ const ContributionScreen = ({ route, navigation }) => {
             {/* Invest Now (pay directly) */}
             <TouchableOpacity
               style={[styles.primaryBtn, !hasSufficientBalance && styles.btnDisabled]}
-              onPress={() => submitToCart(true)}
+              onPress={submitInvestment}
               activeOpacity={0.88}
-              disabled={!hasSufficientBalance}
+              disabled={!hasSufficientBalance || isSubmitting}
             >
               <LinearGradient
                 colors={hasSufficientBalance ? ['#1A237E', '#4361EE'] : ['#999', '#bbb']}
@@ -341,23 +370,25 @@ const ContributionScreen = ({ route, navigation }) => {
               >
                 <Ionicons name="trending-up-outline" size={18} color={COLORS.white} />
                 <Text style={styles.primaryBtnText}>
-                  {isAr ? 'ساهم الآن والذهاب للسلة' : 'Invest Now — Go to Cart'}
+                  {isSubmitting
+                    ? (isAr ? 'جاري الاستثمار...' : 'Investing...')
+                    : (isAr ? 'استثمر الآن' : 'Invest Now')}
                 </Text>
                 <Ionicons name={isAr ? 'chevron-back' : 'chevron-forward'} size={16} color={COLORS.white} />
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Add to cart only */}
+            {/* Save for later */}
             <TouchableOpacity
               style={styles.secondaryBtn}
-              onPress={() => submitToCart(false)}
+              onPress={saveForLater}
               activeOpacity={0.88}
             >
-              <Ionicons name={inCart ? 'bag-check-outline' : 'bag-add-outline'} size={18} color={COLORS.primary} />
+              <Ionicons name={isProjectSaved || isProjectInvested ? 'heart' : 'heart-outline'} size={18} color={COLORS.primary} />
               <Text style={styles.secondaryBtnText}>
-                {inCart
-                  ? (isAr ? 'تحديث قيمة السلة' : 'Update Cart Amount')
-                  : (isAr ? 'أضف إلى السلة فقط' : 'Add to Cart Only')}
+                {isProjectSaved || isProjectInvested
+                  ? (isAr ? 'تحديث الحفظ' : 'Update Saved Amount')
+                  : (isAr ? 'حفظ للاستثمار لاحقا' : 'Save for Later')}
               </Text>
             </TouchableOpacity>
           </View>

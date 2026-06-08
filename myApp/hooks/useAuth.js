@@ -130,7 +130,7 @@ export const AuthProvider = ({ children }) => {
     const resolvedUser   = buildUser(response?.user || { phone, role: selectedRole, name: 'مستخدم' });
     setUser(resolvedUser);
     setActiveRole(resolveUserRole(resolvedUser.role || selectedRole));
-    await sessionManager.saveSession(response.token, response.refreshToken, resolvedUser);
+    await sessionManager.saveSession(response.token, resolvedUser);
     return resolvedUser;
   };
 
@@ -140,7 +140,7 @@ export const AuthProvider = ({ children }) => {
     const resolvedUser = buildUser(response?.user || { phone, role: 'investor', name: 'مستخدم' });
     setUser(resolvedUser);
     setActiveRole(resolveUserRole(resolvedUser.role));
-    await sessionManager.saveSession(response.token, response.refreshToken, resolvedUser);
+    await sessionManager.saveSession(response.token, resolvedUser);
     return resolvedUser;
   };
 
@@ -150,7 +150,7 @@ export const AuthProvider = ({ children }) => {
     const resolvedUser = buildUser(response?.user || { email, role, name: 'مستخدم' });
     setUser(resolvedUser);
     setActiveRole(resolveUserRole(resolvedUser.role || role));
-    await sessionManager.saveSession(response.token, response.refreshToken, resolvedUser);
+    await sessionManager.saveSession(response.token, resolvedUser);
     return resolvedUser;
   };
 
@@ -160,7 +160,7 @@ export const AuthProvider = ({ children }) => {
     const resolvedUser = buildUser(response?.user || { phone, role, name: 'مستخدم' });
     setUser(resolvedUser);
     setActiveRole(resolveUserRole(resolvedUser.role || role));
-    await sessionManager.saveSession(response.token, response.refreshToken, resolvedUser);
+    await sessionManager.saveSession(response.token, resolvedUser);
     return resolvedUser;
   };
 
@@ -169,7 +169,7 @@ export const AuthProvider = ({ children }) => {
     const resolvedUser = buildUser(response?.user || data);
     setUser(resolvedUser);
     setActiveRole(resolveUserRole(resolvedUser.role));
-    await sessionManager.saveSession(response.token, response.refreshToken, resolvedUser);
+    await sessionManager.saveSession(response.token, resolvedUser);
     return resolvedUser;
   };
 
@@ -183,7 +183,7 @@ export const AuthProvider = ({ children }) => {
     setActiveRole(resolveUserRole(nextUser.role || activeRole));
     // Re-use the existing tokens — only the user data changes
     const session = await sessionManager.loadSession();
-    await sessionManager.saveSession(session.token, session.refreshToken, nextUser);
+    await sessionManager.saveSession(session.token, nextUser);
     return nextUser;
   };
 

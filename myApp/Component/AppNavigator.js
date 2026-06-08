@@ -120,20 +120,23 @@ const TABS_BY_ROLE = {
   guest: [
     { key: 'Home',    labelKey: 'home',    fallbackLabel: { ar: 'الرئيسية', en: 'Home' },     icons: { active: 'home',    inactive: 'home-outline' } },
     { key: 'Projects', labelKey: 'projects', fallbackLabel: { ar: 'المشاريع', en: 'Projects' }, icons: { active: 'leaf',    inactive: 'leaf-outline' } },
-    { key: 'Cart',    labelKey: 'cart',    fallbackLabel: { ar: 'السلة',    en: 'Cart' },      icons: { active: 'bag',     inactive: 'bag-outline' } },
+    { key: 'Cart',    labelKey: 'cart',    fallbackLabel: { ar: 'استثماراتي', en: 'My Investments' }, icons: { active: 'heart', inactive: 'heart-outline' } },
+    { key: 'RechargeWallet', labelKey: 'wallet', fallbackLabel: { ar: 'المحفظة', en: 'Wallet' }, icons: { active: 'wallet', inactive: 'wallet-outline' } },
     { key: 'Account', labelKey: 'account', fallbackLabel: { ar: 'الحساب',   en: 'Account' },   icons: { active: 'person',  inactive: 'person-outline' } },
   ],
   investor: [
     { key: 'Home',    labelKey: 'home',    fallbackLabel: { ar: 'الرئيسية', en: 'Home' },     icons: { active: 'home',    inactive: 'home-outline' } },
     { key: 'Projects', labelKey: 'projects', fallbackLabel: { ar: 'المشاريع', en: 'Projects' }, icons: { active: 'leaf',    inactive: 'leaf-outline' } },
-    { key: 'Cart',    labelKey: 'cart',    fallbackLabel: { ar: 'السلة',    en: 'Cart' },      icons: { active: 'bag',     inactive: 'bag-outline' } },
+    { key: 'Cart',    labelKey: 'cart',    fallbackLabel: { ar: 'استثماراتي', en: 'My Investments' }, icons: { active: 'heart', inactive: 'heart-outline' } },
     { key: 'Account', labelKey: 'account', fallbackLabel: { ar: 'الحساب',   en: 'Account' },   icons: { active: 'person',  inactive: 'person-outline' } },
+    { key: 'RechargeWallet', labelKey: 'wallet', fallbackLabel: { ar: 'المحفظة', en: 'Wallet' }, icons: { active: 'wallet', inactive: 'wallet-outline' } },
   ],
   owner: [
     { key: 'Home',           labelKey: 'home',         fallbackLabel: { ar: 'الرئيسية', en: 'Home' },        icons: { active: 'home',      inactive: 'home-outline' } },
     { key: 'Projects',       labelKey: 'projects',     fallbackLabel: { ar: 'استكشاف',  en: 'Explore' },     icons: { active: 'compass',   inactive: 'compass-outline' } },
     { key: 'OwnerDashboard', labelKey: 'ownerProjects', fallbackLabel: { ar: 'مشاريعي', en: 'My Projects' }, icons: { active: 'briefcase', inactive: 'briefcase-outline' } },
     { key: 'Account',        labelKey: 'ownerSettings', fallbackLabel: { ar: 'إعداداتي', en: 'Settings' },   icons: { active: 'settings',  inactive: 'settings-outline' } },
+    { key: 'AddProject', labelKey: 'createProject', fallbackLabel: { ar: '+', en: '+' }, icons: { active: 'add-circle', inactive: 'add-circle-outline' } },
   ],
 };
 
@@ -142,7 +145,7 @@ const TABS_BY_ROLE = {
  * Bottom navigation bar.
  *
  * Active tab shows a halo glow + active icon + bold label.
- * The Cart tab shows a red badge when totalCount > 0.
+ * The My Investments tab shows a red badge when there are tracked projects.
  * A brief scale-down animation plays on press for tactile feedback.
  */
 const TabBar = ({ currentScreen, navigate, totalCount, t, isAr, tabs, bottomInset }) => {
@@ -223,7 +226,7 @@ const TabBar = ({ currentScreen, navigate, totalCount, t, isAr, tabs, bottomInse
                   {label}
                 </Text>
 
-                {/* Cart badge — only shown when there are items in cart */}
+                {/* My Investments badge — only shown when there are tracked projects */}
                 {tab.key === 'Cart' && totalCount > 0 && (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>{totalCount}</Text>
@@ -244,8 +247,9 @@ export default function AppNavigator() {
   const isAr                                              = i18n.language === 'ar';
   const insets                                            = useSafeAreaInsets();
   const popup                                             = useTopPopup();
-  const { totalCount }                                    = useCart();
+  const { totalCount, clearCart }                         = useCart();
   const { user, activeRole, isLoggedIn, isLoading, sessionExpiredAt } = useAuth();
+  const lastInvestorIdRef                               = useRef(null);
 
   // ── Navigation state ──────────────────────────────────────────────────────
   const [currentScreen, setCurrentScreen] = useState('Home');
@@ -296,7 +300,41 @@ export default function AppNavigator() {
     if (currentRole !== 'owner' && currentScreen === 'OwnerDashboard') {
       setCurrentScreen('Home');
     }
+    if (currentRole !== 'owner' && currentScreen === 'AddProject') {
+      setCurrentScreen('Home');
+    }
+    const canUseInvestmentScreens = currentRole === 'investor' || currentRole === 'owner';
+    if (!canUseInvestmentScreens && ['Cart', 'Contribution', 'RechargeWallet'].includes(currentScreen)) {
+      setCurrentScreen(currentRole === 'guest' ? 'Login' : 'Home');
+    }
   }, [currentRole, currentScreen]);
+
+  // My Investments is in-memory and user-scoped. Clear it for public/unsupported
+  // roles so one account's saved projects never appear for another user.
+  useEffect(() => {
+    const canUseInvestmentScreens = currentRole === 'investor' || currentRole === 'owner';
+    if (!canUseInvestmentScreens && totalCount > 0) {
+      clearCart();
+    }
+  }, [clearCart, currentRole, totalCount]);
+
+  // If a different investor signs in on the same device, clear the local list
+  // so saved/invested projects never bleed between user accounts.
+  useEffect(() => {
+    const canUseInvestmentScreens = currentRole === 'investor' || currentRole === 'owner';
+    if (!canUseInvestmentScreens) {
+      lastInvestorIdRef.current = null;
+      return;
+    }
+
+    const currentInvestorId = user?.id || null;
+    if (!currentInvestorId) return;
+
+    if (lastInvestorIdRef.current && lastInvestorIdRef.current !== currentInvestorId && totalCount > 0) {
+      clearCart();
+    }
+    lastInvestorIdRef.current = currentInvestorId;
+  }, [clearCart, currentRole, totalCount, user?.id]);
 
   // ── Auth guard: redirect unauthenticated users to Login ──────────────────
   /**
@@ -415,6 +453,19 @@ export default function AppNavigator() {
   const navigate = (screen) => {
     if (screens[screen] || ['ProjectDetail', 'Login', 'Register'].includes(screen)) {
       if (screen === currentScreen) return;  // no-op if already on this screen
+      if (screen === 'AddProject' && currentRole !== 'owner') {
+        popup.warning(isAr ? 'إنشاء المشاريع متاح لأصحاب المشاريع فقط.' : 'Project creation is available to entrepreneurs only.');
+        return;
+      }
+      const canUseInvestmentScreens = currentRole === 'investor' || currentRole === 'owner';
+      if (['Contribution', 'Cart', 'RechargeWallet'].includes(screen) && !canUseInvestmentScreens) {
+        if (!isLoggedIn || currentRole === 'guest') {
+          screen = 'Login';
+        } else {
+          popup.warning(isAr ? 'استثماراتي والمحفظة متاحتان للمستثمرين وأصحاب المشاريع فقط.' : 'My Investments and wallet are available to investors and entrepreneurs only.');
+          return;
+        }
+      }
 
       Animated.timing(slideAnim, {
         toValue:         isAr ? -50 : 50,  // slide direction matches reading direction

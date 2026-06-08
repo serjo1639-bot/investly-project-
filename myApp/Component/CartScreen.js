@@ -1,260 +1,319 @@
 /**
- * CartScreen.js — Investment cart and checkout
+ * CartScreen.js - My Investments
  *
- * Lists all projects the user has queued for investment.
- * Each item shows the project image, title, and an AmountEditor
- * (± stepper that clamps to the project's minInvestment).
- *
- * Checkout flow:
- *   1. Check if wallet balance ≥ total investment
- *   2. If not → show "Top Up Wallet" button (navigates to RechargeWallet)
- *   3. If yes → buildInvestmentPayload(items) → investmentAPI.confirmInvestment()
- *   4. On success → clearCart() → show success popup
- *
- * The AmountEditor steps by minAmount (not by 1) so the user stays above
- * the project's minimum with every tap.
+ * The route name stays "Cart" to keep the custom navigator small, but the UI
+ * now represents investor projects rather than an e-commerce cart:
+ *   - Saved Projects: projects the investor wants to revisit later.
+ *   - Invested Projects: projects the investor already invested in this session.
  */
-import React, { useState } from 'react';
+import React from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  ScrollView,
   TouchableOpacity,
   Image,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { COLORS, FONTS, SPACING, RADIUS, SHADOWS, SCREEN, responsiveHeight } from '../constants/theme';
-import { useAuth } from '../hooks/useAuth';
+import { COLORS, FONTS, SPACING, RADIUS, SHADOWS, responsiveHeight } from '../constants/theme';
 import { useCart } from '../hooks/useCart';
-import { buildInvestmentPayload, investmentAPI, resolveProjectImage } from '../services/api';
+import { resolveProjectImage } from '../services/api';
 import AppHeader from './AppHeader';
-import { useTopPopup } from '../hooks/useTopPopup';
-
-const Button = ({ title, onPress, size = 'md', style, loading }) => (
-  <TouchableOpacity onPress={onPress} style={[styles.btn, size === 'lg' && styles.btnLg, style]} disabled={loading}>
-    {loading ? <ActivityIndicator size="small" color={COLORS.white} /> : <Text style={styles.btnText}>{title}</Text>}
-  </TouchableOpacity>
-);
 
 const formatCurrency = (value) => `${Number(value || 0).toLocaleString()} LYD`;
 
-const AmountEditor = ({ value, minAmount, onChange, isAr }) => (
-  <View style={[styles.amountEditor, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
-    <TouchableOpacity style={styles.stepBtn} onPress={() => onChange(Math.max(minAmount, Number(value || minAmount) - minAmount))}>
-      <Ionicons name="remove" size={18} color={COLORS.primary} />
-    </TouchableOpacity>
-    <Text style={styles.amountValue}>{formatCurrency(value)}</Text>
-    <TouchableOpacity style={styles.stepBtn} onPress={() => onChange(Number(value || minAmount) + minAmount)}>
-      <Ionicons name="add" size={18} color={COLORS.primary} />
-    </TouchableOpacity>
+const ProjectCard = ({ item, isAr, invested = false, onRemove, onInvest }) => {
+  const project = item.project || {};
+  const title = isAr ? project.titleAr || project.title : project.titleEn || project.title;
+  const percent = Math.min(
+    100,
+    Math.round((Number(project.raised || 0) / Number(project.goal || 1)) * 100),
+  );
+
+  return (
+    <View style={[styles.projectCard, SHADOWS.md]}>
+      <View style={styles.projectHero}>
+        <Image source={resolveProjectImage(project.image)} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <LinearGradient
+          colors={['transparent', 'rgba(7,11,44,0.90)']}
+          locations={[0.25, 1]}
+          style={styles.projectHeroGrad}
+        >
+          <Text style={[styles.projectTitle, { textAlign: isAr ? 'right' : 'left' }]} numberOfLines={2}>
+            {title}
+          </Text>
+          <View style={styles.progressBg}>
+            <View style={[styles.progressFill, { width: `${percent}%` }]} />
+          </View>
+        </LinearGradient>
+      </View>
+
+      <View style={styles.projectBody}>
+        <View style={[styles.metaRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
+          <Ionicons
+            name={invested ? 'checkmark-circle-outline' : 'heart-outline'}
+            size={18}
+            color={invested ? COLORS.teal : COLORS.primary}
+          />
+          <Text style={[styles.metaText, { textAlign: isAr ? 'right' : 'left' }]}>
+            {invested
+              ? (isAr ? `استثمرت: ${formatCurrency(item.amount)}` : `Invested: ${formatCurrency(item.amount)}`)
+              : (isAr ? 'محفوظ للاستثمار لاحقا' : 'Saved to invest later')}
+          </Text>
+        </View>
+
+        <View style={[styles.actionRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
+          {!invested ? (
+            <>
+              <TouchableOpacity style={styles.investBtn} onPress={() => onInvest(project)} activeOpacity={0.85}>
+                <Ionicons name="trending-up-outline" size={16} color={COLORS.white} />
+                <Text style={styles.investBtnText}>{isAr ? 'استثمر الآن' : 'Invest Now'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.removeBtn} onPress={() => onRemove(project.id)} activeOpacity={0.85}>
+                <Ionicons name="heart-dislike-outline" size={16} color={COLORS.danger} />
+                <Text style={styles.removeBtnText}>{isAr ? 'إلغاء الحفظ' : 'Unsave'}</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity style={styles.trackBtn} activeOpacity={0.85}>
+              <Ionicons name="analytics-outline" size={16} color={COLORS.teal} />
+              <Text style={styles.trackBtnText}>{isAr ? 'متابعة المشروع' : 'Track Project'}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const Section = ({ title, emptyText, items, isAr, invested, onRemove, onInvest }) => (
+  <View style={styles.section}>
+    <View style={[styles.sectionHeader, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text style={styles.sectionCount}>{items.length}</Text>
+    </View>
+    {items.length === 0 ? (
+      <View style={styles.emptySection}>
+        <Ionicons name={invested ? 'bar-chart-outline' : 'heart-outline'} size={24} color={COLORS.textMuted} />
+        <Text style={styles.emptySectionText}>{emptyText}</Text>
+      </View>
+    ) : (
+      items.map((item) => (
+        <ProjectCard
+          key={`${item.status}-${item.project.id}`}
+          item={item}
+          isAr={isAr}
+          invested={invested}
+          onRemove={onRemove}
+          onInvest={onInvest}
+        />
+      ))
+    )}
   </View>
 );
 
 const CartScreen = ({ navigation }) => {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
-  const { user } = useAuth();
-  const { items, removeFromCart, updateAmount, clearCart, totalAmount, totalCount } = useCart();
-  const [loading, setLoading] = useState(false);
-  const popup = useTopPopup();
+  const { savedItems, investedItems, removeSavedProject } = useCart();
+  const hasAnyItems = savedItems.length > 0 || investedItems.length > 0;
 
-  const walletBalance = Number(user?.walletBalance || 0);
-  const canPayWithWallet = totalAmount <= walletBalance;
-  const shortfall = Math.max(0, totalAmount - walletBalance);
-
-  const handleConfirm = async () => {
-    if (items.length === 0) return;
-    setLoading(true);
-    try {
-      const payload = buildInvestmentPayload(items);
-      await investmentAPI.confirmInvestment(payload);
-      clearCart();
-      popup.success(
-        isAr ? 'تم تجهيز بيانات الدفع والمساهمة بنجاح.' : 'Payment and contribution data were prepared successfully.',
-        {
-          title: isAr ? 'تم إرسال طلب المساهمة' : 'Contribution Submitted',
-          duration: 3200,
-        }
-      );
-      setTimeout(() => navigation.navigate && navigation.navigate('Home'), 450);
-    } catch {
-      popup.error(isAr ? 'حدث خطأ، حاول مرة أخرى' : 'Something went wrong, please try again.', {
-        title: t('error'),
-      });
+  const goToContribution = (project) => {
+    global.currentProject = project;
+    if (navigation.navigateToContribution) {
+      navigation.navigateToContribution(project);
+    } else {
+      navigation.navigate && navigation.navigate('Contribution');
     }
-    setLoading(false);
   };
-
-  if (items.length === 0) {
-    return (
-      <View style={styles.container}>
-        <AppHeader title={t('cartTitle')} onMenuPress={() => navigation.openDrawer()} showRightIcon={false} />
-        <View style={styles.emptyWrap}>
-          <View style={styles.emptyIcon}>
-            <Ionicons name="bag-outline" size={52} color={COLORS.primary} />
-          </View>
-          <Text style={styles.emptyTitle}>{t('emptyCart')}</Text>
-          <Text style={styles.emptyDesc}>{t('emptyCartDesc')}</Text>
-          <Button
-            title={t('browseProjects')}
-            onPress={() => navigation.navigate && navigation.navigate('Projects')}
-            style={{ marginTop: SPACING.md, paddingHorizontal: SPACING.xl }}
-          />
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
       <AppHeader title={t('cartTitle')} onMenuPress={() => navigation.openDrawer()} showRightIcon={false} />
 
-      <FlatList
-        data={items}
-        keyExtractor={(item) => item.project.id}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => {
-          const title   = isAr ? item.project.titleAr : item.project.titleEn;
-          const percent = Math.min(100, Math.round((Number(item.project.raised || 0) / Number(item.project.goal || 1)) * 100));
-          return (
-            <View style={[styles.cartCard, SHADOWS.md]}>
-              {/* ── Project image hero ── */}
-              <View style={styles.cartHero}>
-                <Image source={resolveProjectImage(item.project.image)} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                <LinearGradient
-                  colors={['transparent', 'rgba(7,11,44,0.90)']}
-                  locations={[0.3, 1]}
-                  style={styles.cartHeroGrad}
-                >
-                  <Text style={[styles.cartHeroTitle, { textAlign: isAr ? 'right' : 'left' }]} numberOfLines={2}>
-                    {title}
-                  </Text>
-                  <View style={{ height: 3, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: RADIUS.full, overflow: 'hidden' }}>
-                    <View style={{ width: `${percent}%`, height: '100%', backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: RADIUS.full }} />
-                  </View>
-                </LinearGradient>
-                {/* Delete button — top trailing corner (right in LTR, left in RTL) */}
-                <TouchableOpacity
-                  style={[styles.cartDeleteBtn, isAr ? { left: SPACING.sm, right: undefined } : {}]}
-                  onPress={() => popup.confirm({
-                    title: isAr ? 'حذف من السلة' : 'Remove from cart',
-                    message: isAr ? 'هل تريد حذف هذا المشروع من السلة؟' : 'Remove this project from cart?',
-                    cancelText: t('cancel'),
-                    confirmText: t('delete'),
-                    onConfirm: () => removeFromCart(item.project.id),
-                    type: 'warning',
-                  })}
-                >
-                  <Ionicons name="trash-outline" size={18} color={COLORS.white} />
-                </TouchableOpacity>
-              </View>
-
-              {/* ── Amount editor ── */}
-              <View style={styles.cartBody}>
-                <Text style={[styles.cartMinLabel, { textAlign: isAr ? 'right' : 'left' }]}>
-                  {isAr ? `الحد الأدنى: ${formatCurrency(item.minAmount)}` : `Minimum: ${formatCurrency(item.minAmount)}`}
-                </Text>
-                <AmountEditor
-                  value={item.amount}
-                  minAmount={Number(item.minAmount || 5)}
-                  onChange={(value) => updateAmount(item.project.id, value)}
-                  isAr={isAr}
-                />
-              </View>
-            </View>
-          );
-        }}
-      />
-
-      <View style={styles.footer}>
-        <View style={[styles.summaryRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
-          <Text style={styles.summaryLabel}>{t('projectsCount')}:</Text>
-          <Text style={styles.summaryValue}>{totalCount}</Text>
+      {!hasAnyItems ? (
+        <View style={styles.emptyWrap}>
+          <View style={styles.emptyIcon}>
+            <Ionicons name="heart-outline" size={52} color={COLORS.primary} />
+          </View>
+          <Text style={styles.emptyTitle}>{t('emptyCart')}</Text>
+          <Text style={styles.emptyDesc}>{t('emptyCartDesc')}</Text>
+          <TouchableOpacity
+            style={styles.browseBtn}
+            onPress={() => navigation.navigate && navigation.navigate('Projects')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.browseBtnText}>{t('browseProjects')}</Text>
+          </TouchableOpacity>
         </View>
-        <View style={[styles.summaryRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
-          <Text style={styles.summaryLabel}>{t('totalInvestment')}:</Text>
-          <Text style={[styles.summaryValue, { color: COLORS.primary }]}>{formatCurrency(totalAmount)}</Text>
-        </View>
-        <View style={[styles.summaryRow, { flexDirection: isAr ? 'row-reverse' : 'row' }]}>
-          <Text style={styles.summaryLabel}>{isAr ? 'رصيد المحفظة' : 'Wallet Balance'}:</Text>
-          <Text style={styles.summaryValue}>{formatCurrency(walletBalance)}</Text>
-        </View>
-        {!canPayWithWallet && (
-          <Text style={styles.warningText}>
-            {isAr
-              ? `الرصيد غير كافٍ. يلزم شحن ${formatCurrency(shortfall)} إضافية.`
-              : `Insufficient wallet balance. You need ${formatCurrency(shortfall)} more.`}
-          </Text>
-        )}
-        {!canPayWithWallet ? (
-          <Button
-            title={isAr ? 'شحن المحفظة' : 'Top Up Wallet'}
-            onPress={() => navigation.navigate && navigation.navigate('RechargeWallet')}
-            size="lg"
+      ) : (
+        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+          <Section
+            title={isAr ? 'المشاريع المحفوظة' : 'Saved Projects'}
+            emptyText={isAr ? 'لا توجد مشاريع محفوظة بعد.' : 'No saved projects yet.'}
+            items={savedItems}
+            isAr={isAr}
+            onRemove={removeSavedProject}
+            onInvest={goToContribution}
           />
-        ) : (
-          <Button title={isAr ? 'تأكيد الدفع' : 'Confirm Payment'} onPress={handleConfirm} loading={loading} size="lg" />
-        )}
-      </View>
+          <Section
+            title={isAr ? 'المشاريع المستثمر بها' : 'Invested Projects'}
+            emptyText={isAr ? 'لا توجد مشاريع مستثمر بها بعد.' : 'No invested projects yet.'}
+            items={investedItems}
+            isAr={isAr}
+            invested
+            onRemove={removeSavedProject}
+            onInvest={goToContribution}
+          />
+        </ScrollView>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  list: { padding: SPACING.base },
-  cartCard: {
+  list: { padding: SPACING.base, paddingBottom: SPACING.xxxl },
+  section: { marginBottom: SPACING.lg },
+  sectionHeader: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+  },
+  sectionTitle: {
+    fontSize: FONTS.md,
+    fontWeight: FONTS.bold,
+    color: COLORS.textPrimary,
+  },
+  sectionCount: {
+    minWidth: 28,
+    textAlign: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.primaryLight,
+    color: COLORS.primaryDark,
+    fontWeight: FONTS.bold,
+  },
+  projectCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 22,
+    borderRadius: 20,
     marginBottom: SPACING.base,
     overflow: 'hidden',
   },
-  cartHero: {
-    height: responsiveHeight(160, { min: 130, max: 180 }),
+  projectHero: {
+    height: responsiveHeight(145, { min: 125, max: 165 }),
     overflow: 'hidden',
   },
-  cartHeroGrad: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
+  projectHeroGrad: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     paddingHorizontal: SPACING.base,
-    paddingTop: SPACING.xl, paddingBottom: SPACING.base,
+    paddingTop: SPACING.xl,
+    paddingBottom: SPACING.base,
     gap: 6,
   },
-  cartHeroTitle: {
-    fontSize: FONTS.base, fontWeight: FONTS.bold, color: COLORS.white,
+  projectTitle: {
+    fontSize: FONTS.base,
+    fontWeight: FONTS.bold,
+    color: COLORS.white,
     lineHeight: FONTS.base * 1.35,
   },
-  cartDeleteBtn: {
-    position: 'absolute', top: SPACING.sm, right: SPACING.sm,
-    width: 34, height: 34, borderRadius: 17,
-    backgroundColor: 'rgba(239,68,68,0.72)',
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+  progressBg: {
+    height: 3,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: RADIUS.full,
+    overflow: 'hidden',
   },
-  cartBody: {
-    padding: SPACING.base,
-    gap: SPACING.sm,
+  progressFill: {
+    height: '100%',
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderRadius: RADIUS.full,
   },
-  cartMinLabel: { fontSize: FONTS.xs, color: COLORS.textMuted },
-  amountEditor: { alignItems: 'center', backgroundColor: COLORS.backgroundDark, borderRadius: RADIUS.lg, padding: SPACING.xs, gap: SPACING.sm, flexWrap: 'wrap' },
-  stepBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center' },
-  amountValue: { fontSize: FONTS.base, fontWeight: FONTS.bold, color: COLORS.textPrimary, minWidth: 110, textAlign: 'center', flexShrink: 1 },
+  projectBody: { padding: SPACING.base, gap: SPACING.sm },
+  metaRow: { alignItems: 'center', gap: SPACING.xs },
+  metaText: { flex: 1, fontSize: FONTS.sm, color: COLORS.textSecondary },
+  actionRow: { gap: SPACING.sm, flexWrap: 'wrap' },
+  investBtn: {
+    flex: 1,
+    minWidth: 130,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.base,
+    paddingVertical: SPACING.sm,
+  },
+  investBtnText: { color: COLORS.white, fontSize: FONTS.sm, fontWeight: FONTS.bold },
+  removeBtn: {
+    flex: 1,
+    minWidth: 130,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.dangerLight,
+    borderRadius: RADIUS.base,
+    paddingVertical: SPACING.sm,
+  },
+  removeBtnText: { color: COLORS.danger, fontSize: FONTS.sm, fontWeight: FONTS.bold },
+  trackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.tealLight,
+    borderRadius: RADIUS.base,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.base,
+  },
+  trackBtnText: { color: COLORS.tealDark, fontSize: FONTS.sm, fontWeight: FONTS.bold },
+  emptySection: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.lg,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+  },
+  emptySectionText: {
+    marginTop: SPACING.xs,
+    color: COLORS.textMuted,
+    fontSize: FONTS.sm,
+    textAlign: 'center',
+  },
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl },
-  emptyIcon: { width: 100, height: 100, borderRadius: 50, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.lg },
+  emptyIcon: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: COLORS.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.lg,
+  },
   emptyTitle: { fontSize: FONTS.lg, fontWeight: FONTS.bold, color: COLORS.textPrimary },
-  emptyDesc: { fontSize: FONTS.sm, color: COLORS.textMuted, marginTop: SPACING.xs, textAlign: 'center' },
-  footer: { backgroundColor: COLORS.white, padding: SPACING.base, borderTopWidth: 1, borderTopColor: COLORS.borderLight },
-  summaryRow: { justifyContent: 'space-between', marginBottom: SPACING.xs },
-  summaryLabel: { fontSize: FONTS.sm, color: COLORS.textSecondary },
-  summaryValue: { fontSize: FONTS.sm, fontWeight: FONTS.bold, color: COLORS.textPrimary },
-  btn: { backgroundColor: COLORS.primary, paddingVertical: SPACING.md, borderRadius: RADIUS.base, alignItems: 'center', marginTop: SPACING.sm },
-  btnLg: { paddingVertical: SPACING.lg },
-  btnText: { color: COLORS.white, fontSize: FONTS.base, fontWeight: FONTS.bold, textAlign: 'center' },
-  warningText: { color: COLORS.danger, fontSize: FONTS.sm, marginBottom: SPACING.sm, textAlign: 'center' },
+  emptyDesc: {
+    fontSize: FONTS.sm,
+    color: COLORS.textMuted,
+    marginTop: SPACING.xs,
+    textAlign: 'center',
+  },
+  browseBtn: {
+    marginTop: SPACING.md,
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.xl,
+    borderRadius: RADIUS.base,
+  },
+  browseBtnText: { color: COLORS.white, fontSize: FONTS.base, fontWeight: FONTS.bold },
 });
 
 export default CartScreen;

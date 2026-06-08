@@ -18,6 +18,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOWS, responsiveHeight } from '../constants/theme';
 import { projectsAPI, resolveProjectImage } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
+import { useCart } from '../hooks/useCart';
+import { useTopPopup } from '../hooks/useTopPopup';
 import AppHeader from './AppHeader';
 
 const ProjectCard = ({ project, onPress }) => {
@@ -28,10 +31,37 @@ const ProjectCard = ({ project, onPress }) => {
   const catLbl = isAr ? project.categoryAr : project.categoryEn;
   const owner  = project.ownerCompanyName || project.ownerName || project.founderName;
   const pct    = project.goal > 0 ? Math.min(100, Math.round((project.raised / project.goal) * 100)) : 0;
+  const { activeRole } = useAuth();
+  const { toggleSavedProject, isSaved, isInvested } = useCart();
+  const popup = useTopPopup();
+  const canSaveProject = activeRole === 'investor' || activeRole === 'owner';
+  const isProjectSaved = isSaved(project.id);
+  const isProjectInvested = isInvested(project.id);
+  const isTracked = isProjectSaved || isProjectInvested;
+
+  const handleToggleSave = (event) => {
+    event?.stopPropagation?.();
+    if (isProjectInvested) {
+      popup.success(isAr ? 'المشروع موجود بالفعل في استثماراتي' : 'Project is already in My Investments');
+      return;
+    }
+    const amount = Number(project.minInvestment || 5);
+    toggleSavedProject(project, amount, { minAmount: amount, currency: project.currencyCode || 'LYD' });
+    popup.success(
+      isProjectSaved
+        ? (isAr ? 'تم إلغاء حفظ المشروع' : 'Project unsaved')
+        : (isAr ? 'تم حفظ المشروع في استثماراتي' : 'Project saved to My Investments')
+    );
+  };
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.88}>
       <Image source={resolveProjectImage(project.image)} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      {canSaveProject && (
+        <TouchableOpacity style={styles.addCartBtn} onPress={handleToggleSave} activeOpacity={0.85}>
+          <Ionicons name={isTracked ? 'heart' : 'heart-outline'} size={18} color={COLORS.white} />
+        </TouchableOpacity>
+      )}
       <LinearGradient
         colors={['rgba(0,0,0,0.0)', 'rgba(8,12,46,0.65)', 'rgba(5,8,35,0.98)']}
         locations={[0.2, 0.55, 1]}
@@ -143,6 +173,20 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     height: responsiveHeight(240, { min: 210, max: 265 }),
     ...SHADOWS.md,
+  },
+  addCartBtn: {
+    position: 'absolute',
+    top: SPACING.sm,
+    right: SPACING.sm,
+    zIndex: 5,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(0,180,160,0.82)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.42)',
   },
   cardGrad: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
