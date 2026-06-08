@@ -1,0 +1,246 @@
+================================================================
+  DATABASE JOINS & JOIN TABLES — What they are and how we use them
+  Investly Project — Explained with our actual tables and queries
+================================================================
+
+----------------------------------------------------------------
+  PART 1: JOIN TABLES (Junction / Bridge Tables)
+  What they are and why we need them
+----------------------------------------------------------------
+
+A JOIN TABLE (also called a junction table or bridge table) is a
+table whose only job is to connect two other tables together.
+
+You need a join table whenever TWO tables have a many-to-many
+relationship — meaning one row in Table A can relate to many rows
+in Table B, AND one row in Table B can relate to many rows in A.
+
+See the "relationships.txt" file for a full explanation of M:M.
+
+
+OUR JOIN TABLES IN INVESTLY
+─────────────────────────────
+
+We have 2 join tables:
+
+  1. investments              → connects users ↔ projects
+  2. user_notification_reads  → connects users ↔ notifications
+
+
+JOIN TABLE 1: investments (Users ↔ Projects)
+─────────────────────────────────────────────
+
+  users table:               projects table:
+  ┌──────────┬───────┐       ┌──────────┬───────────────────┐
+  │ id       │ name  │       │ id       │ title_en          │
+  ├──────────┼───────┤       ├──────────┼───────────────────┤
+  │ ahmed-id │ Ahmed │       │ proj-001 │ Tech Platform     │
+  │ sara-id  │ Sara  │       │ proj-002 │ Solar Energy Farm │
+  └──────────┴───────┘       └──────────┴───────────────────┘
+
+  Without a join table, how do you say "Ahmed invested in both projects
+  and Sara invested in project 2"? You can't — neither table can hold
+  that information cleanly.
+
+  investments table (the join table):
+  ┌──────────┬──────────────┬──────────┬────────┬───────────┐
+  │ id       │ investor_id  │ project_id│ amount │ status    │
+  ├──────────┼──────────────┼──────────┼────────┼───────────┤
+  │ inv-001  │ ahmed-id     │ proj-001 │ 2500   │ completed │
+  │ inv-002  │ ahmed-id     │ proj-002 │ 5000   │ completed │
+  │ inv-003  │ sara-id      │ proj-002 │ 1000   │ pending   │
+  └──────────┴──────────────┴──────────┴────────┴───────────┘
+
+  Now the relationship is clear AND we store extra info (amount, status)
+  on the relationship itself — not on the user or the project.
+
+  This is called an "associative entity" — the join table is not just
+  a bridge, it has its own meaningful data.
+
+
+JOIN TABLE 2: user_notification_reads (Users ↔ Notifications)
+──────────────────────────────────────────────────────────────
+
+  notifications table:
+  ┌──────────────┬────────────────┬────────────────┐
+  │ id           │ target_user_id │ message_en     │
+  ├──────────────┼────────────────┼────────────────┤
+  │ notif-001    │ ahmed-id       │ "Investment..."│  ← targeted
+  │ notif-002    │ NULL           │ "Welcome..."   │  ← broadcast (all users)
+  └──────────────┴────────────────┴────────────────┘
+
+  user_notification_reads table (the join table):
+  ┌──────────────┬──────────────┬──────────┬─────────┐
+  │ notification │ user_id      │ is_read  │ read_at │
+  ├──────────────┼──────────────┼──────────┼─────────┤
+  │ notif-002    │ ahmed-id     │ TRUE     │ 10:00   │  ← Ahmed read broadcast
+  │ notif-002    │ sara-id      │ FALSE    │ NULL    │  ← Sara hasn't read it
+  │ notif-002    │ omar-id      │ FALSE    │ NULL    │  ← Omar hasn't read it
+  └──────────────┴──────────────┴──────────┴─────────┘
+
+  Each user gets their own row so read state is tracked independently.
+
+
+----------------------------------------------------------------
+  PART 2: SQL JOIN QUERIES
+  How to actually query across tables
+----------------------------------------------------------------
+
+There are 4 types of JOINs. We use them all in our views.
+
+  INNER JOIN  — only rows that match in BOTH tables
+  LEFT JOIN   — all rows from the left table, match or not
+  RIGHT JOIN  — all rows from the right table, match or not
+  FULL JOIN   — all rows from both tables, match or not
+
+
+INNER JOIN — The most common
+────────────────────────────
+
+Returns only rows where there is a match on both sides.
+If a user has no wallet, they will NOT appear in the result.
+
+Example: get every project with its category name
+
+  SELECT p.title_en, c.name_en AS category_name
+  FROM   projects p
+  INNER JOIN categories c ON p.category = c.id;
+
+  Result:
+  ┌───────────────────────┬─────────────────┐
+  │ title_en              │ category_name   │
+  ├───────────────────────┼─────────────────┤
+  │ Advanced Tech Platform│ Technology      │
+  │ Solar Energy Farm     │ Renewable Energy│
+  │ Smart Agriculture     │ Agriculture     │
+  │ Community Health Clinic│ Health         │
+  └───────────────────────┴─────────────────┘
+
+  This is used in: vw_project_summary
+
+
+LEFT JOIN — Keep all rows from the left table
+─────────────────────────────────────────────
+
+Returns ALL rows from the left table. If no match on the right,
+the right-side columns come back as NULL.
+
+Example: get all users with their wallet balance (if they have one)
+
+  SELECT u.name, w.balance
+  FROM   users u
+  LEFT JOIN wallets w ON u.id = w.user_id;
+
+  Result:
+  ┌─────────────┬─────────┐
+  │ name        │ balance │
+  ├─────────────┼─────────┤
+  │ Ahmed Ali   │ 5000    │  ← has a wallet
+  │ Sara Khalil │ 2500    │  ← has a wallet
+  │ Omar Mansour│ 0       │  ← has a wallet (empty)
+  │ Admin User  │ 0       │  ← has a wallet (empty)
+  │ Guest User  │ NULL    │  ← NO wallet — still appears, balance is NULL
+  └─────────────┴─────────┘
+
+  This is used in: vw_user_summary
+  (we use COALESCE to turn NULLs into 0: COALESCE(w.balance, 0))
+
+
+THREE-TABLE JOIN — combining multiple tables at once
+──────────────────────────────────────────────────────
+
+Example: get investments with project title AND investor name
+
+  SELECT i.amount,
+         p.title_en  AS project,
+         u.name      AS investor
+  FROM   investments i
+  JOIN   projects p ON i.project_id  = p.id
+  JOIN   users    u ON i.investor_id = u.id;
+
+  Result:
+  ┌─────────┬──────────────────────┬─────────────┐
+  │ amount  │ project              │ investor    │
+  ├─────────┼──────────────────────┼─────────────┤
+  │ 2500    │ Advanced Tech Platform│ Ahmed Ali  │
+  │ 5000    │ Solar Energy Farm    │ Ahmed Ali   │
+  │ 1000    │ Advanced Tech Platform│ Sara Khalil│
+  │ 10000   │ Community Health ... │ Sara Khalil │
+  └─────────┴──────────────────────┴─────────────┘
+
+  This is the vw_investment_details view.
+
+
+FOUR-TABLE JOIN — vw_project_summary (the most complex view)
+─────────────────────────────────────────────────────────────
+
+  SELECT p.title_en,
+         c.name_ar   AS category_ar,
+         c.name_en   AS category_en,
+         u.name      AS owner_name
+  FROM   projects    p
+  JOIN   categories  c ON p.category = c.id
+  JOIN   users       u ON p.owner_id = u.id;
+
+  Tables joined: projects + categories + users
+  What it gives: complete project card data for the app home screen.
+
+
+SELF-JOIN — a table joined to itself
+──────────────────────────────────────
+
+Used in vw_payment_details to get both the user name AND the
+approver name from the same "users" table:
+
+  SELECT p.amount,
+         u.name  AS user_name,
+         a.name  AS approved_by_name
+  FROM   payments p
+  JOIN   users u ON p.user_id     = u.id
+  LEFT JOIN users a ON p.approved_by = a.id;
+                ↑
+         Same "users" table, joined twice with different aliases
+         (u for the payer, a for the approver)
+
+
+----------------------------------------------------------------
+  PART 3: WHERE JOIN TABLES LIVE IN OUR PROJECT
+----------------------------------------------------------------
+
+File: database/schema.sql
+  Tables defined here: investments, user_notification_reads
+
+File: database/views.sql
+  All the JOIN queries are written as views so the backend
+  can use them with simple SELECT statements.
+
+  vw_project_summary      → projects JOIN categories JOIN users
+  vw_user_summary         → users LEFT JOIN wallets LEFT JOIN investments
+  vw_investment_details   → investments JOIN projects JOIN users
+  vw_payment_details      → payments JOIN users JOIN users (self-join)
+  vw_wallet_details       → wallets JOIN users
+  vw_admin_dashboard_stats→ subqueries across multiple tables
+
+
+----------------------------------------------------------------
+  PART 4: HOW THE BACKEND USES THESE JOINS
+----------------------------------------------------------------
+
+Instead of writing complex JOIN queries in the C# / Node.js code,
+the backend just does:
+
+  SELECT * FROM vw_project_summary WHERE status = 'active';
+  SELECT * FROM vw_user_summary WHERE id = '...';
+  SELECT * FROM vw_investment_details WHERE investor_id = '...';
+
+The JOIN is already done inside the view. The backend gets clean,
+flat data — as if it were a simple table — without writing SQL.
+
+To call a stored function (e.g., confirm an investment):
+
+  SELECT fn_confirm_investment(investorId, projectId, amount, 'wallet');
+
+The function internally does all the JOINs, checks, and updates.
+The backend just checks the return value (0=success, 1..4=error).
+
+================================================================

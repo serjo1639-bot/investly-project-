@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\myApp\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-turbopack)",
+      "Bash(npm install *)",
+      "Bash(dir /s /b \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\admin-dashboard\")",
+      "Bash(findstr /i \"login auth\")",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\admin-dashboard\\\\src\" -Recurse | Where-Object { $_.Name -match \"login|auth|Login|Auth\" } | Select-Object FullName)",
+      "PowerShell(cmd /c \"dir /b /s \"\"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\admin-dashboard\\\\src\"\" 2>&1 | findstr /i login\")",
+      "PowerShell(cmd /c \"dir /b /s \"\"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\admin-dashboard\\\\src\\\\lib\"\" 2>&1\")",
+      "PowerShell(cmd /c \"dir /b \"\"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\admin-dashboard\"\" 2>&1\")",
+      "PowerShell(cmd /c \"dir /b /s \"\"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\admin-dashboard\\\\src\"\" 2>&1 | findstr /i types\")",
+      "Bash(npx tsc *)",
+      "Bash(npx next *)",
+      "Bash(Remove-Item *)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\myApp\\\\src\" -Recurse | Where-Object { $_.PSIsContainer -eq $true } | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\(\"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\myApp\\\\src\", \"\"\\) } | Sort-Object)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\admin-dashboard\\\\src\" -Recurse | Where-Object { $_.PSIsContainer -eq $true } | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\(\"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\admin-dashboard\\\\src\", \"\"\\) } | Sort-Object)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\myApp\\\\src\" -Recurse -Exclude \"node_modules\" | Where-Object { $_.PSIsContainer -eq $false } | Select-Object -ExpandProperty FullName | Sort-Object | ForEach-Object { $_.Replace\\(\"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\myApp\\\\src\\\\\", \"\"\\) })",
+      "PowerShell(head *)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\myApp\" -Recurse -Exclude \"node_modules\", \"dist\", \".git\", \".expo\", \".claude\" | Where-Object { $_.PSIsContainer -eq $false } | Select-Object -ExpandProperty FullName | Sort-Object | ForEach-Object { $_.Replace\\(\"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\myApp\\\\\", \"myApp/\"\\) } | Select-Object -First 80)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\myApp\\\\services\" -Recurse | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\(\"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\myApp\\\\services\\\\\", \"services/\"\\) })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\myApp\\\\Component\" -Recurse | Where-Object { $_.PSIsContainer -eq $false } | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\(\"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\myApp\\\\Component\\\\\", \"Component/\"\\) })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\admin-dashboard\\\\src\" -Recurse | Where-Object { $_.PSIsContainer -eq $false } | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\(\"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\admin-dashboard\\\\src\\\\\", \"admin-dashboard/src/\"\\) } | Select-Object -First 100)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\.expo\" -Recurse -Exclude \"cache\" | Where-Object { $_.PSIsContainer -eq $false } | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\(\"C:\\\\Users\\\\seraj\\\\OneDrive\\\\Desktop\\\\مشروع التخرج\\\\project_code\\\\.expo\\\\\", \".expo/\"\\) })",
+      "Bash(grep -rn \"USD\\\\|EUR\\\\|dollar\\\\|\\\\\\\\\\\\$\\\\|currency\\\\|Currency\\\\|language\\\\|Language\\\\|locale\\\\|Locale\\\\|lang\\\\b\\\\|Lang\\\\b\" src/ --include=\"*.ts\" --include=\"*.tsx\" -l)",
+      "Read(//c/Users/seraj/OneDrive/Desktop/مشروع التخرج/project_code/myApp/**)",
+      "Bash(grep -rn \"USD\\\\|EUR\\\\|GBP\\\\|dollar\\\\|euro\" Component/ services/ --include=\"*.js\")",
+      "Bash(claude mcp *)",
+      "Bash(npx -y @modelcontextprotocol/server-sequential-thinking --version)",
+      "Bash(npx -y @modelcontextprotocol/server-memory --version)"
+    ]
+  }
+}

@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+@theme {
+  /* Investly Brand Colors */
+  --color-primary: #4361EE;
+  --color-primary-dark: #1A237E;
+  --color-primary-light: #DDE4FF;
+  --color-primary-50: #EEF1FF;
+
+  --color-teal: #00B4A0;
+  --color-teal-light: #C8F5F0;
+  --color-teal-dark: #007A6E;
+
+  --color-amber: #F59E0B;
+  --color-amber-light: #FEF3C7;
+
+  /* Background */
+  --color-background: #EFF1FF;
+  --color-background-dark: #E2E8FF;
+  --color-surface: #FFFFFF;
+
+  /* Text */
+  --color-text-primary: #0D1B4B;
+  --color-text-secondary: #374375;
+  --color-text-muted: #8892AD;
+  --color-text-light: #BDC5DC;
+
+  /* Semantic */
+  --color-danger: #EF4444;
+  --color-danger-light: #FEE2E2;
+  --color-success: #10B981;
+  --color-success-light: #D1FAE5;
+  --color-warning: #F59E0B;
+  --color-warning-light: #FEF3C7;
+  --color-info: #0EA5E9;
+  --color-info-light: #E0F2FE;
+
+  /* Border */
+  --color-border: #C8D3F5;
+  --color-border-light: #E4EBFF;
+
+  /* Shimmer */
+  --color-shimmer: #E8EDFF;
+
+  /* Sidebar */
+  --color-sidebar: #0D1B4B;
+  --color-sidebar-hover: #1e2d6b;
+  --color-sidebar-active: #4361EE;
+
+  /* Font */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-base: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-sans);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Transitions */
+.transition-sidebar {
+  transition: width 0.3s ease, transform 0.3s ease;
+}

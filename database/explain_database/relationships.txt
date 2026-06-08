@@ -1,0 +1,332 @@
+================================================================
+  DATABASE RELATIONSHIPS — 1:1,  1:M,  M:M
+  Investly Project — Every relationship shown with real tables
+================================================================
+
+A "relationship" describes how two tables are connected.
+There are three kinds:
+
+  1:1   One-to-One       (one row in A matches exactly one row in B)
+  1:M   One-to-Many      (one row in A matches many rows in B)
+  M:M   Many-to-Many     (many rows in A match many rows in B)
+
+The relationship type decides whether you use a foreign key column
+directly or need a separate join table.
+
+
+================================================================
+  1:1  —  ONE-TO-ONE
+  One row on each side, perfectly paired.
+================================================================
+
+Definition:
+  One row in Table A corresponds to exactly one row in Table B,
+  and vice versa. You could technically put them in one table, but
+  you split them to keep concerns separate.
+
+How to implement:
+  Add a UNIQUE foreign key on one side.
+
+Examples in Investly:
+──────────────────────
+
+  users  ↔  wallets
+  ─────────────────
+  Every user has exactly one wallet.
+  Every wallet belongs to exactly one user.
+
+  Implementation:
+    wallets.user_id → references users.id
+    AND wallets.user_id is UNIQUE (one wallet per user)
+
+  ┌────────────┬───────┐      ┌────────────┬─────────┬──────────┐
+  │ users      │       │      │ wallets    │         │          │
+  ├────────────┼───────┤      ├────────────┼─────────┼──────────┤
+  │ ahmed-id   │ Ahmed │ ───► │ wallet-001 │ ahmed-id│ 5000 LYD │
+  │ sara-id    │ Sara  │ ───► │ wallet-002 │ sara-id │ 2500 LYD │
+  │ omar-id    │ Omar  │ ───► │ wallet-003 │ omar-id │ 0 LYD    │
+  └────────────┴───────┘      └────────────┴─────────┴──────────┘
+
+  SQL in schema.sql:
+    CREATE TABLE wallets (
+        user_id UUID NOT NULL UNIQUE,   ← UNIQUE enforces 1:1
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+
+  users  ↔  notification_settings
+  ─────────────────────────────────
+  Every user has exactly one notification preferences row.
+
+  Implementation:
+    notification_settings.user_id → references users.id   (UNIQUE)
+
+  ┌────────────┬───────┐      ┌─────────────────────┬──────────┬────────────┐
+  │ users      │       │      │ notification_settings│ user_id  │ push_notif │
+  ├────────────┼───────┤      ├─────────────────────┼──────────┼────────────┤
+  │ ahmed-id   │ Ahmed │ ───► │ settings-001         │ ahmed-id │ TRUE       │
+  │ sara-id    │ Sara  │ ───► │ settings-002         │ sara-id  │ FALSE      │
+  └────────────┴───────┘      └─────────────────────┴──────────┴────────────┘
+
+When to use 1:1:
+  - The child table has data that not every parent row needs
+    (e.g. not every user may have notification settings yet)
+  - You want to keep the main table lean and focused
+  - You might query one side much more often than the other
+
+All 1:1 relationships in Investly:
+  users  ↔  wallets
+  users  ↔  notification_settings
+
+
+================================================================
+  1:M  —  ONE-TO-MANY
+  One row in A connects to many rows in B.
+================================================================
+
+Definition:
+  One row in Table A can be referenced by many rows in Table B.
+  Table B has a foreign key column pointing back to Table A.
+  This is by far the most common relationship type.
+
+How to implement:
+  Add a foreign key column on the "many" side pointing to the "one" side.
+  No UNIQUE constraint — the same parent ID can appear many times.
+
+Examples in Investly:
+──────────────────────
+
+  users (1)  →  projects (M)
+  ─────────────────────────────
+  One owner can own many projects.
+  Each project belongs to exactly one owner.
+
+  ┌────────────┬────────┐
+  │ users      │        │
+  ├────────────┼────────┤
+  │ fatima-id  │ Fatima │
+  └────────────┴────────┘
+       │
+       │ one owner
+       │
+       ▼ many projects
+  ┌──────────┬──────────────────┬───────────┐
+  │ projects │ title_en         │ owner_id  │
+  ├──────────┼──────────────────┼───────────┤
+  │ proj-001 │ Tech Platform    │ fatima-id │  ← same owner
+  │ proj-002 │ Solar Energy Farm│ fatima-id │  ← same owner
+  │ proj-003 │ Smart Agriculture│ fatima-id │  ← same owner
+  └──────────┴──────────────────┴───────────┘
+
+  SQL:
+    projects.owner_id → references users.id
+    (no UNIQUE — many projects can share the same owner_id)
+
+
+  users (1)  →  payments (M)
+  ─────────────────────────────
+  One user can have many payments over time.
+
+  ┌────────────┬───────┐
+  │ ahmed-id   │ Ahmed │
+  └────────────┴───────┘
+       │
+       ▼
+  ┌──────────┬───────────┬─────────┐
+  │ payments │ user_id   │ amount  │
+  ├──────────┼───────────┼─────────┤
+  │ pay-001  │ ahmed-id  │ 2500    │
+  │ pay-002  │ ahmed-id  │ 5000    │
+  │ pay-003  │ ahmed-id  │ 1000    │
+  └──────────┴───────────┴─────────┘
+
+
+  users (1)  →  wallet_transactions (M)
+  ──────────────────────────────────────
+  Every top-up or investment payment creates a new transaction row.
+  One user → many transactions over time.
+
+
+  projects (1)  →  investments (M)
+  ──────────────────────────────────
+  One project can receive investments from many investors.
+  Each investment row points back to one project.
+
+  (Note: investments also has a many-to-many side — see M:M below)
+
+
+  notifications (1)  →  user_notification_reads (M)
+  ───────────────────────────────────────────────────
+  One broadcast notification → many read-state rows, one per user.
+
+  ┌──────────────┬────────────────────────┐
+  │ notifications│ message_en             │
+  ├──────────────┼────────────────────────┤
+  │ notif-002    │ "Welcome to Investly"  │  ← one broadcast notification
+  └──────────────┴────────────────────────┘
+       │
+       ▼
+  ┌──────────────────────┬───────────────┬──────────┐
+  │ user_notification_.. │ user_id       │ is_read  │
+  ├──────────────────────┼───────────────┼──────────┤
+  │ read-001             │ ahmed-id      │ TRUE     │  ← Ahmed's read state
+  │ read-002             │ sara-id       │ FALSE    │  ← Sara's read state
+  │ read-003             │ omar-id       │ FALSE    │  ← Omar's read state
+  └──────────────────────┴───────────────┴──────────┘
+
+
+  wallets (1)  →  wallet_transactions (M)
+  ─────────────────────────────────────────
+  One wallet has many credit/debit entries over time.
+  (This is the transaction ledger.)
+
+
+All 1:M relationships in Investly:
+  users     →  projects              (owner_id)
+  users     →  payments              (user_id)
+  users     →  wallet_transactions   (user_id)
+  users     →  investments           (investor_id)
+  users     →  refresh_tokens        (user_id)
+  users     →  activity_logs         (admin_id)
+  users     →  media                 (uploaded_by)
+  wallets   →  wallet_transactions   (wallet_id)
+  projects  →  investments           (project_id)
+  payments  →  investments           (investment_id — reversed side)
+  notifications → user_notification_reads (notification_id)
+
+
+================================================================
+  M:M  —  MANY-TO-MANY
+  Many rows in A connect to many rows in B.
+  Requires a join table in the middle.
+================================================================
+
+Definition:
+  One investor can invest in many projects.
+  One project can receive investments from many investors.
+  → You CANNOT store this with just a foreign key on either side.
+  → You NEED a third table in the middle (the join/junction table).
+
+Why you can't use a simple foreign key for M:M:
+  If you add investor_id to projects → one project can only have
+  ONE investor stored. You'd have to add investor1_id, investor2_id...
+  That's exactly the 1NF violation (multiple values for one thing).
+
+  If you add project_id to users → one user can only invest in
+  ONE project. Same problem.
+
+  Solution: a separate join table.
+
+Examples in Investly:
+──────────────────────
+
+  users (investors) M:M projects — via investments
+  ─────────────────────────────────────────────────
+
+  Ahmed can invest in:  Tech Platform, Solar Energy Farm
+  Sara  can invest in:  Tech Platform, Health Clinic
+
+  Tech Platform can receive from:  Ahmed, Sara
+  Solar Energy Farm can receive from:  Ahmed
+
+  ┌────────────┬────────┐               ┌──────────┬──────────────────┐
+  │ users      │        │               │ projects │ title_en         │
+  ├────────────┼────────┤               ├──────────┼──────────────────┤
+  │ ahmed-id   │ Ahmed  │               │ proj-001 │ Tech Platform    │
+  │ sara-id    │ Sara   │               │ proj-002 │ Solar Energy Farm│
+  └────────────┴────────┘               │ proj-004 │ Health Clinic    │
+                                        └──────────┴──────────────────┘
+
+  investments (join table):
+  ┌──────────┬──────────────┬──────────┬────────┬───────────┐
+  │ id       │ investor_id  │ project_id│ amount │ status    │
+  ├──────────┼──────────────┼──────────┼────────┼───────────┤
+  │ inv-001  │ ahmed-id     │ proj-001 │ 2500   │ completed │  Ahmed → Tech
+  │ inv-002  │ ahmed-id     │ proj-002 │ 5000   │ completed │  Ahmed → Solar
+  │ inv-003  │ sara-id      │ proj-001 │ 1000   │ pending   │  Sara  → Tech
+  │ inv-004  │ sara-id      │ proj-004 │ 10000  │ completed │  Sara  → Health
+  └──────────┴──────────────┴──────────┴────────┴───────────┘
+
+  The join table also carries its own data: amount, status, payment_method.
+  This is called an "associative entity" — the join table is meaningful
+  on its own, not just a bridge.
+
+  SQL:
+    SELECT u.name, p.title_en, i.amount
+    FROM   investments i
+    JOIN   users    u ON i.investor_id = u.id
+    JOIN   projects p ON i.project_id  = p.id;
+
+
+  users M:M notifications — via user_notification_reads
+  ──────────────────────────────────────────────────────
+
+  Ahmed receives: Investment Confirmed, Welcome, Identity Verified
+  Sara  receives: Welcome (broadcast)
+  Omar  receives: Welcome (broadcast)
+
+  "Welcome" is received by: Ahmed, Sara, Omar
+
+  user_notification_reads (join table):
+  ┌──────────┬──────────────────┬──────────┬─────────┐
+  │ notif_id │ user_id          │ is_read  │ read_at │
+  ├──────────┼──────────────────┼──────────┼─────────┤
+  │ notif-2  │ ahmed-id         │ TRUE     │ 10:00   │
+  │ notif-2  │ sara-id          │ FALSE    │ NULL    │
+  │ notif-2  │ omar-id          │ FALSE    │ NULL    │
+  └──────────┴──────────────────┴──────────┴─────────┘
+
+
+All M:M relationships in Investly:
+  users (investor) ↔ projects     → via investments
+  users            ↔ notifications → via user_notification_reads
+
+
+================================================================
+  SIDE BY SIDE COMPARISON — Which type is which?
+================================================================
+
+  Relationship      Type  Join Table Needed  Foreign Key Column
+  ────────────────  ────  ─────────────────  ──────────────────────────
+  user ↔ wallet      1:1  No                 wallets.user_id (UNIQUE)
+  user → projects    1:M  No                 projects.owner_id
+  user → payments    1:M  No                 payments.user_id
+  user ↔ projects    M:M  YES → investments  investments.investor_id
+                                             investments.project_id
+  user ↔ notif.      M:M  YES → user_notif. user_notif_reads.user_id
+                          _reads             user_notif_reads.notif_id
+  project → invest.  1:M  No (investments   investments.project_id
+                           is the join tbl)
+
+
+================================================================
+  HOW TO IDENTIFY THE TYPE — Quick Decision Guide
+================================================================
+
+Ask yourself:
+
+  Q1: Can one A have many B's?
+        No  → could be 1:1, check Q2
+        Yes → go to Q2
+
+  Q2: Can one B have many A's?
+        No  → it is 1:M  (add FK on the B side)
+        Yes → it is M:M  (add a join table)
+
+  Q3: (for 1:1) Is there exactly one B per A?
+        Yes → 1:1  (add FK with UNIQUE constraint)
+
+Examples using this guide:
+  "Can one user have many wallets?"   → No
+  "Can one wallet belong to many users?" → No
+  → 1:1  ✓
+
+  "Can one user make many investments?"  → Yes
+  "Can one investment belong to many users?" → No
+  → 1:M  ✓
+
+  "Can one investor invest in many projects?" → Yes
+  "Can one project have many investors?"      → Yes
+  → M:M → need join table (investments)  ✓
+
+================================================================
