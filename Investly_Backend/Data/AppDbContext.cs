@@ -71,6 +71,20 @@ public class AppDbContext : DbContext
             e.HasIndex(u => u.Username).IsUnique();    // Username must be unique
         });
 
+        // USER ROLE CONFIGURATION
+        // UserRoles is a join table, so one row is identified by both IDs together.
+        modelBuilder.Entity<UserRole>(e => {
+            e.HasKey(ur => new { ur.UserId, ur.RoleId });
+
+            e.HasOne(ur => ur.User)
+                .WithMany(u => u.UserRoles)
+                .HasForeignKey(ur => ur.UserId);
+
+            e.HasOne(ur => ur.Role)
+                .WithMany(r => r.UserRoles)
+                .HasForeignKey(ur => ur.RoleId);
+        });
+
         // PROJECT CONFIGURATION
         modelBuilder.Entity<Project>(e => {
             e.HasIndex(p => p.Reference).IsUnique();   // Project reference numbers are unique
