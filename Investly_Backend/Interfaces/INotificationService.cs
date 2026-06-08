@@ -1,22 +1,14 @@
-using InvestlyFullAPI.DTOs.Notification;
+// INotificationService - Contract for notification operations
 
-namespace InvestlyFullAPI.Interfaces;
+using Investly_Backend.DTOs;
 
-// Manages in-app notifications for users
+namespace Investly_Backend.Interfaces;
+
 public interface INotificationService
 {
-    // Get all notifications for a user, optionally filtered by read status
-    Task<List<NotificationDto>> GetUserNotificationsAsync(int userId, bool? isRead = null);
-
-    // Mark a single notification as read
-    Task MarkAsReadAsync(int notificationId, int userId);
-
-    // Mark all notifications for a user as read
-    Task MarkAllAsReadAsync(int userId);
-
-    // Create a new notification (also pushes real-time via SignalR)
-    Task CreateNotificationAsync(int userId, string message, string? type = null);
-
-    // Get the count of unread notifications for a user
+    Task<NotificationListDto> GetAllAsync(int userId, int page, int pageSize, bool unreadOnly);
     Task<int> GetUnreadCountAsync(int userId);
+    Task MarkAsReadAsync(int userId, List<int> notificationIds);
+    Task MarkAllAsReadAsync(int userId);
+    Task CreateAsync(int userId, string type, string titleAr, string titleEn, string messageAr, string messageEn, int? projectId, int? investmentId);
 }

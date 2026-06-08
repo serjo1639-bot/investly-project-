@@ -1,21 +1,34 @@
+// ============================================================
+// AUTH SERVICE - Handles authentication and user registration
+// ============================================================
+// DEPENDENCY INJECTION: The constructor receives AppDbContext
+// and IConfiguration from the DI container. We never create
+// these manually - ASP.NET provides them automatically.
+// 
+// WHY ASYNC/AWAIT?
+// All DB operations use async methods (FirstOrDefaultAsync,
+// SaveChangesAsync) to avoid BLOCKING the thread while waiting
+// for the database. This allows the server to handle OTHER
+// requests during the wait time (scalability!).
+// ============================================================
+
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using InvestlyFullAPI.Data;
-using InvestlyFullAPI.DTOs.Auth;
-using InvestlyFullAPI.Interfaces;
-using InvestlyFullAPI.Models;
+using Investly_Backend.Data;
+using Investly_Backend.DTOs;
+using Investly_Backend.Interfaces;
+using Investly_Backend.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
-namespace InvestlyFullAPI.Services;
+namespace Investly_Backend.Services;
 
-// AuthService handles user registration and login
-// It creates JWT tokens that the client uses for authenticated requests
 public class AuthService : IAuthService
 {
-    private readonly AppDbContext _context;
-    private readonly IConfiguration _configuration;
+    // Private fields injected via constructor
+    private readonly AppDbContext _context;   // Database access
+    private readonly IConfiguration _configuration;  // App settings (appsettings.json)
 
     public AuthService(AppDbContext context, IConfiguration configuration)
     {
@@ -23,157 +36,184 @@ public class AuthService : IAuthService
         _configuration = configuration;
     }
 
-    // Register a new user
-    public async Task<AuthResponseDto?> RegisterAsync(RegisterDto registerDto)
+    public async Task<LoginResponse?> LoginAsync(LoginRequest dto)
     {
-        // Check if email is already taken (we have a unique index on Email)
-        var existingUser = await _context.Users
-            .FirstOrDefaultAsync(u => u.Email == registerDto.Email);
+        // LINQ query: Find user by email
+        // FirstOrDefaultAsync = SELECT TOP 1 * FROM Users WHERE Email = @email
+        // Returns null if no match found
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+        if (user == null) return null;
+        if (!user.IsActive) return null;  // Deactivated accounts can't log in
 
-        if (existingUser != null)
-        {
-            return null; // Email already exists
-        }
+        // BCrypt.Verify checks the password hash WITHOUT decrypting it
+        // We NEVER store plain text passwords - only BCrypt hashes
+        if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash)) return null;
 
-        // Hash the password using BCrypt
-        // BCrypt automatically generates a random salt and embeds it in the hash
-        // This means even if two users have the same password, their hashes differ
-        var passwordHash = BCrypt.Net.BCrypt.HashPassword(registerDto.Password);
+        return await GenerateAuthResponseAsync(user);
+    }
 
-        // Create the new user object
+    public async Task<LoginResponse?> RegisterAsync(RegisterRequest dto)
+    {
+        // Check if email is already taken
+        var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+        if (existingUser != null) return null;
+
+        // BCrypt.HashPassword creates a salted hash - never reversible!
+        // The "salt" is random and stored INSIDE the hash string
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+
+        // Create a new User entity object
+        // This is NOT saved to DB yet - we need to call SaveChangesAsync
         var user = new User
         {
-            Email = registerDto.Email,
+            Email = dto.Email,
             PasswordHash = passwordHash,
-            FirstName = registerDto.FirstName,
-            LastName = registerDto.LastName,
-            IsMale = registerDto.IsMale,
-            NationalId = registerDto.NationalId,
-            DateOfBirth = registerDto.DateOfBirth,
-            Phone = registerDto.Phone,
+            FirstName = dto.FirstName,
+            LastName = dto.LastName,
+            Username = dto.Username,
+            Phone = dto.Phone,
+            NationalId = dto.NationalId,
             IsActive = true,
+            EmailConfirmed = false,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
 
-        // Save user to database
+        // Tracked: Add the entity to the change tracker
         _context.Users.Add(user);
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync();  // INSERT INTO Users ...
 
-        // Assign the default "Investor" role to every new user
-        var investorRole = await _context.Roles
-            .FirstOrDefaultAsync(r => r.RoleName == "Investor");
-
-        if (investorRole != null)
+        // Assign the "User" role to the new account
+        var userRole = await _context.Roles.FirstOrDefaultAsync(r => r.RoleName == "User");
+        if (userRole != null)
         {
-            var userRole = new UserRole
-            {
-                UserId = user.UserId,
-                RoleId = investorRole.RoleId,
-                AssignedAt = DateTime.UtcNow
-            };
-            _context.UserRoles.Add(userRole);
-            await _context.SaveChangesAsync();
+            _context.UserRoles.Add(new UserRole { UserId = user.UserId, RoleId = userRole.RoleId });
+            await _context.SaveChangesAsync();  // INSERT INTO UserRoles ...
         }
 
-        // Generate JWT token for the new user so they're logged in immediately
+        // Every user gets a wallet with 0 balance automatically
+        var wallet = new UserWallet
+        {
+            UserId = user.UserId,
+            Balance = 0,
+            LockedAmount = 0,
+            Status = "Active",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        _context.UserWallets.Add(wallet);
+        await _context.SaveChangesAsync();  // INSERT INTO UserWallets ...
+
+        // Return JWT so user is logged in right after registration
         return await GenerateAuthResponseAsync(user);
     }
 
-    // Log in an existing user
-    public async Task<AuthResponseDto?> LoginAsync(LoginDto loginDto)
+    public async Task<bool> ChangePasswordAsync(int userId, ChangePasswordRequest dto)
     {
-        // Find user by email
-        var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.Email == loginDto.Email);
+        // FindAsync looks up by primary key (fastest lookup)
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return false;
 
-        if (user == null)
-        {
-            return null; // User not found
-        }
+        // Must provide CORRECT old password to change
+        if (!BCrypt.Net.BCrypt.Verify(dto.OldPassword, user.PasswordHash)) return false;
 
-        // Check if account is active
-        if (!user.IsActive)
-        {
-            return null; // Account deactivated
-        }
-
-        // Verify password using BCrypt
-        // BCrypt.Verify() compares the plain password against the stored hash
-        if (!BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash))
-        {
-            return null; // Wrong password
-        }
-
-        // Generate JWT token
-        return await GenerateAuthResponseAsync(user);
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+        user.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();  // UPDATE Users SET PasswordHash = ... WHERE UserId = ...
+        return true;
     }
 
-    // Generate a JWT token and auth response for a user
-    private async Task<AuthResponseDto> GenerateAuthResponseAsync(User user)
+    public async Task<UserDto?> GetCurrentUserAsync(int userId)
     {
-        // Get the user's roles
-        var roles = await _context.UserRoles
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return null;
+
+        // Map User entity -> UserDto (NEVER expose PasswordHash to client!)
+        return new UserDto
+        {
+            UserId = user.UserId,
+            Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Username = user.Username ?? "",
+            Gender = user.Gender?.ToString() ?? "",
+            NationalId = user.NationalId,
+            Phone = user.Phone ?? "",
+            ProfilePictureUrl = user.ProfilePictureUrl,
+            IsActive = user.IsActive,
+            CreatedAt = user.CreatedAt
+        };
+    }
+
+    // ============================================================
+    // JWT TOKEN GENERATION
+    // ============================================================
+    // JWTs are digitally signed JSON strings that prove identity.
+    // Structure: header.payload.signature
+    // - Header: algorithm info (HMAC-SHA256)
+    // - Payload: claims (user data like id, email, roles)
+    // - Signature: verified with our secret key (prevents tampering)
+    //
+    // The client stores this token and sends it in the
+    // Authorization header for every authenticated request.
+    // ============================================================
+    private async Task<LoginResponse> GenerateAuthResponseAsync(User user)
+    {
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var jwtSettings = _configuration.GetSection("Jwt");
+        var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
+
+        // Load the user's roles from the UserRoles join table
+        // This is a "navigation property" traversal:
+        // User -> UserRole -> Role (three tables joined via LINQ)
+        var userRoles = await _context.UserRoles
             .Where(ur => ur.UserId == user.UserId)
-            .Include(ur => ur.Role)
-            .Select(ur => ur.Role.RoleName)
+            .Select(ur => ur.Role!.RoleName)
             .ToListAsync();
 
-        // Create claims (pieces of info stored inside the token)
-        // Claims are like key-value pairs embedded in the JWT
+        // Claims are key-value pairs embedded in the JWT
+        // They tell the server WHO the user is and WHAT they can do
         var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),  // User ID
             new Claim(ClaimTypes.Email, user.Email),
-            new Claim(ClaimTypes.GivenName, user.FirstName),
-            new Claim(ClaimTypes.Surname, user.LastName)
+            new Claim(ClaimTypes.Name, $" {user.LastName}")
         };
 
-        // Add each role as a separate claim
-        // This allows role-based authorization with [Authorize(Roles = "Admin")]
-        foreach (var role in roles)
+        // Each role becomes a separate claim
+        // This enables [Authorize(Roles = "Admin")] on controllers
+        foreach (var role in userRoles)
         {
             claims.Add(new Claim(ClaimTypes.Role, role));
         }
 
-        // Get JWT settings from appsettings.json
-        var jwtSettings = _configuration.GetSection("JWT");
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(jwtSettings["Key"]!));
+        var expiresMinutes = int.Parse(jwtSettings["ExpireMinutes"] ?? "60");
+        var expiration = DateTime.UtcNow.AddMinutes(expiresMinutes);
 
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-        // Read expiration from config or default to 7 days
-        var expireMinutes = jwtSettings["ExpireMinutes"];
-        var expiration = expireMinutes != null
-            ? DateTime.UtcNow.AddMinutes(double.Parse(expireMinutes))
-            : DateTime.UtcNow.AddDays(7);
-
-        // Create the token descriptor
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
             Expires = expiration,
             Issuer = jwtSettings["Issuer"],
             Audience = jwtSettings["Audience"],
-            SigningCredentials = credentials
+            SigningCredentials = new SigningCredentials(
+                new SymmetricSecurityKey(key),
+                SecurityAlgorithms.HmacSha256Signature  // The signing algorithm
+            )
         };
 
-        // Generate the token
-        var tokenHandler = new JwtSecurityTokenHandler();
         var token = tokenHandler.CreateToken(tokenDescriptor);
-        var tokenString = tokenHandler.WriteToken(token);
+        var tokenString = tokenHandler.WriteToken(token);  // Serialize to string
 
-        // Return the auth response
-        return new AuthResponseDto
+        return new LoginResponse
         {
             Token = tokenString,
-            ExpiresAt = expiration,
-            UserId = user.UserId,
             Email = user.Email,
             FirstName = user.FirstName,
             LastName = user.LastName,
-            Roles = roles
+            UserId = user.UserId,
+            Roles = userRoles,
+            ExpiresAt = expiration
         };
     }
 }

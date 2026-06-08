@@ -1,19 +1,15 @@
-using InvestlyFullAPI.DTOs.Investment;
+// IInvestmentService - Contract for investment operations
 
-namespace InvestlyFullAPI.Interfaces;
+using Investly_Backend.DTOs;
 
-// Manages individual investments within a portfolio
+namespace Investly_Backend.Interfaces;
+
 public interface IInvestmentService
 {
-    // Get all investments for a specific portfolio
-    Task<List<InvestmentDto>> GetPortfolioInvestmentsAsync(int portfolioId, int userId);
-
-    // Add a new investment to a portfolio
-    Task<InvestmentDto?> CreateInvestmentAsync(int portfolioId, int userId, CreateInvestmentDto dto);
-
-    // Delete an investment from a portfolio
-    Task<bool> DeleteInvestmentAsync(int investmentId, int userId);
-
-    // Update the current price of an investment (simulates market price change)
-    Task<InvestmentDto?> UpdatePriceAsync(int investmentId, int userId, decimal newPrice);
+    Task<PaginatedResult<MyInvestmentDto>> GetByUserAsync(int userId, int page, int pageSize);
+    Task<InvestmentDto?> GetByIdAsync(int id);
+    Task<InvestmentConfirmationDto?> CreateAsync(int userId, CreateInvestmentRequest request);
+    Task<bool> ConfirmAsync(int id);
+    Task<bool> CancelAsync(int id);
+    Task<object> GetPortfolioSummaryAsync(int userId);
 }

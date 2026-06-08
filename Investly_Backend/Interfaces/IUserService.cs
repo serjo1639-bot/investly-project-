@@ -1,25 +1,20 @@
-using InvestlyFullAPI.DTOs.User;
+// IUserService - Contract for user/profile management operations
 
-namespace InvestlyFullAPI.Interfaces;
+using Investly_Backend.DTOs;
 
-// Manages user profile operations
+namespace Investly_Backend.Interfaces;
+
 public interface IUserService
 {
-    // Get a list of all users
-    Task<List<UserDto>> GetAllUsersAsync();
-
-    // Get a single user by their ID
-    Task<UserDto?> GetUserByIdAsync(int id);
-
-    // Update a user's profile information
-    Task<UserDto?> UpdateUserAsync(int id, UpdateUserDto updateDto);
-
-    // Self-delete: user deactivates own account
-    Task<bool> DeleteMyAccountAsync(int userId);
-
-    // Soft-delete: deactivate a user instead of removing from database
+    Task<PaginatedResult<UserDto>> GetAllAsync(int page, int pageSize, string? search);
+    Task<UserDto?> GetByIdAsync(int id);
+    Task<UserDto?> GetByEmailAsync(string email);
+    Task<UserDto?> UpdateUserAsync(int id, UpdateUserRequest request);
     Task<bool> DeactivateUserAsync(int id);
-
-    // Activate a previously deactivated user
     Task<bool> ActivateUserAsync(int id);
+    Task<WalletDto?> GetWalletAsync(int userId);
+    Task<InvestorProfileDto?> CreateInvestorProfileAsync(int userId, CreateInvestorProfileRequest request);
+    Task<EntrepreneurProfileDto?> CreateEntrepreneurProfileAsync(int userId, CreateEntrepreneurProfileRequest request);
+    Task<InvestorProfileDto?> GetInvestorProfileAsync(int userId);
+    Task<EntrepreneurProfileDto?> GetEntrepreneurProfileAsync(int userId);
 }

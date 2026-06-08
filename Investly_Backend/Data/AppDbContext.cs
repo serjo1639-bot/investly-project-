@@ -1,163 +1,107 @@
-using InvestlyFullAPI.Models;
+// ============================================================
+// APP DB CONTEXT - THE BRIDGE BETWEEN C# AND THE DATABASE
+// ============================================================
+// Entity Framework Core (EF Core) is an ORM (Object-Relational Mapper).
+// AppDbContext inherits from DbContext, which is the core class in EF Core.
+//
+// HOW IT WORKS:
+// - Each DbSet<T> property represents a DATABASE TABLE
+// - Each model class (like User) represents a TABLE ROW
+// - Each property on the model (like User.Email) represents a COLUMN
+// - LINQ queries on DbSets are translated to SQL automatically
+//
+// EXAMPLE:
+//   _context.Users.Where(u => u.Email == "x@y.com").FirstOrDefaultAsync()
+//   -> SQL: SELECT * FROM Users WHERE Email = 'x@y.com' LIMIT 1
+// ============================================================
+
 using Microsoft.EntityFrameworkCore;
-
-namespace InvestlyFullAPI.Data;
-
-// AppDbContext is the bridge between our C# code and the database
-// It tells Entity Framework how our models map to database tables
+using Investly_Backend.Models;
+namespace Investly_Backend.Data;
 public class AppDbContext : DbContext
 {
-    // Constructor: options contain the connection string and database provider
-    // These options are configured in Program.cs
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
-    {
-    }
+    // The constructor receives DbContextOptions from DI (configured in Program.cs)
+    // base(options) passes those options (like connection string) to the parent class
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-    // DbSet = a collection that represents a database table
-    // We can query, add, update, and delete from these sets
-    public DbSet<User> Users => Set<User>();
-    public DbSet<Role> Roles => Set<Role>();
-    public DbSet<UserRole> UserRoles => Set<UserRole>();
-    public DbSet<Notification> Notifications => Set<Notification>();
-    public DbSet<Portfolio> Portfolios => Set<Portfolio>();
-    public DbSet<Investment> Investments => Set<Investment>();
+    // ---- DbSet PROPERTIES ----
+    // Each DbSet maps to a database table.
+    // EF Core uses the property name as the table name (unless [Table] attribute says otherwise).
+    // Example: _context.Users gives us access to the "Users" table.
 
-    // Configure the table mappings and relationships
-    // This is called by EF Core when the model is being created
+    public DbSet<User> Users { get; set; }
+    public DbSet<Role> Roles { get; set; }
+    public DbSet<UserRole> UserRoles { get; set; }
+    public DbSet<Admin> Admins { get; set; }
+    public DbSet<InvestorProfile> InvestorProfiles { get; set; }
+    public DbSet<EntrepreneurProfile> EntrepreneurProfiles { get; set; }
+    public DbSet<UserWallet> UserWallets { get; set; }
+    public DbSet<Category> Categories { get; set; }
+    public DbSet<Project> Projects { get; set; }
+    public DbSet<ProjectEscrowWallet> ProjectEscrowWallets { get; set; }
+    public DbSet<ProjectProof> ProjectProofs { get; set; }
+    public DbSet<ProjectUpdate> ProjectUpdates { get; set; }
+    public DbSet<ProjectMedia> ProjectMedia { get; set; }
+    public DbSet<Investment> Investments { get; set; }
+    public DbSet<WalletTransaction> WalletTransactions { get; set; }
+    public DbSet<EscrowTransaction> EscrowTransactions { get; set; }
+    public DbSet<WithdrawalRequest> WithdrawalRequests { get; set; }
+    public DbSet<ProfitRecord> ProfitRecords { get; set; }
+    public DbSet<DividendPayout> DividendPayouts { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
+
+    // ---- FLUENT API CONFIGURATION ----
+    // OnModelCreating lets us configure the database schema using C# code (Fluent API).
+    // This is an alternative to data annotations ([Required], [MaxLength]) on models.
+    // Fluent API is MORE POWERFUL for complex configurations like:
+    //   - Composite keys
+    //   - Indexes
+    //   - Advanced relationships
+    //   - Cascade delete behavior
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // ========================
-        // User table configuration
-        // ========================
-        modelBuilder.Entity<User>(entity =>
-        {
-            entity.ToTable("Users", "dbo"); // Table name = Users, Schema = dbo
+        base.OnModelCreating(modelBuilder);
 
-            // Map C# property names to database column names (snake_case convention)
-            entity.Property(e => e.UserId).HasColumnName("user_id");
-            entity.Property(e => e.Email).HasColumnName("email").HasMaxLength(100);
-            entity.Property(e => e.PasswordHash).HasColumnName("password_hash").HasMaxLength(500);
-            entity.Property(e => e.FirstName).HasColumnName("first_name").HasMaxLength(50);
-            entity.Property(e => e.LastName).HasColumnName("last_name").HasMaxLength(50);
-            entity.Property(e => e.IsMale).HasColumnName("is_male");
-            entity.Property(e => e.NationalId).HasColumnName("national_id").HasMaxLength(50);
-            entity.Property(e => e.DateOfBirth).HasColumnName("date_of_birth");
-            entity.Property(e => e.Phone).HasColumnName("phone").HasMaxLength(10);
-            entity.Property(e => e.ProfilePictureUrl).HasColumnName("profile_picture_url").HasMaxLength(500);
-            entity.Property(e => e.BankAccountNumber).HasColumnName("bank_account_number").HasMaxLength(50);
-            entity.Property(e => e.IsActive).HasColumnName("is_active");
-            entity.Property(e => e.EmailConfirmed).HasColumnName("email_confirmed");
-            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
-            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
-
-            // Create an index on Email for fast lookups during login
-            entity.HasIndex(e => e.Email).IsUnique().HasDatabaseName("IX_Users_Email");
+        // USER CONFIGURATION
+        // Indexes speed up queries on columns used in WHERE clauses.
+        // HasIndex().IsUnique() creates a UNIQUE constraint = no duplicate values allowed.
+        modelBuilder.Entity<User>(e => {
+            e.HasIndex(u => u.Email).IsUnique();      // No two users can share an email
+            e.HasIndex(u => u.NationalId).IsUnique();  // National ID must be unique
+            e.HasIndex(u => u.Username).IsUnique();    // Username must be unique
         });
 
-        // ========================
-        // Role table configuration
-        // ========================
-        modelBuilder.Entity<Role>(entity =>
-        {
-            entity.ToTable("Roles", "dbo");
-            entity.HasKey(e => e.RoleId);
-            entity.Property(e => e.RoleId).HasColumnName("role_id");
-            entity.Property(e => e.RoleName).HasColumnName("role_name").HasMaxLength(50);
+        // PROJECT CONFIGURATION
+        modelBuilder.Entity<Project>(e => {
+            e.HasIndex(p => p.Reference).IsUnique();   // Project reference numbers are unique
+
+            // RELATIONSHIP: Project -> EntrepreneurProfile (CreatorProfile)
+            // A Project has ONE CreatorProfile (EntrepreneurProfile)
+            // An EntrepreneurProfile has MANY Projects
+            // The foreign key is Project.CreatorProfileId
+            // OnDelete(DeleteBehavior.Restrict) prevents deleting a profile that has projects
+            e.HasOne(p => p.CreatorProfile)
+                .WithMany(ep => ep.Projects)
+                .HasForeignKey(p => p.CreatorProfileId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // ========================
-        // UserRole join table (many-to-many)
-        // ========================
-        modelBuilder.Entity<UserRole>(entity =>
-        {
-            entity.ToTable("UserRoles", "dbo");
-
-            // Composite primary key: (user_id + role_id) = a user can only have a role once
-            entity.HasKey(e => new { e.UserId, e.RoleId });
-
-            entity.Property(e => e.UserId).HasColumnName("user_id");
-            entity.Property(e => e.RoleId).HasColumnName("role_id");
-            entity.Property(e => e.AssignedAt).HasColumnName("assigned_at");
-
-            // Define the relationship: UserRole -> User (many-to-one)
-            entity.HasOne(e => e.User)
-                .WithMany() // User doesn't have a collection of UserRoles (no nav property)
-                .HasForeignKey(e => e.UserId)
-                .OnDelete(DeleteBehavior.Cascade); // Delete UserRole when User is deleted
-
-            // Define the relationship: UserRole -> Role (many-to-one)
-            entity.HasOne(e => e.Role)
-                .WithMany() // Role doesn't have a collection of UserRoles
-                .HasForeignKey(e => e.RoleId)
-                .OnDelete(DeleteBehavior.Cascade);
+        // INVESTMENT CONFIGURATION
+        modelBuilder.Entity<Investment>(e => {
+            // Investment -> InvestorProfile (many-to-one)
+            e.HasOne(i => i.InvestorProfile)
+                .WithMany(ip => ip.Investments)
+                .HasForeignKey(i => i.InvestorProfileId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // ========================
-        // Notification table
-        // ========================
-        modelBuilder.Entity<Notification>(entity =>
-        {
-            entity.ToTable("Notifications", "dbo");
-            entity.HasKey(e => e.NotificationId);
-            entity.Property(e => e.NotificationId).HasColumnName("notification_id");
-            entity.Property(e => e.UserId).HasColumnName("user_id");
-            entity.Property(e => e.Message).HasColumnName("message").HasMaxLength(1000);
-            entity.Property(e => e.IsRead).HasColumnName("is_read");
-            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
-            entity.Property(e => e.Type).HasColumnName("type").HasMaxLength(50);
-
-            // One User has many Notifications
-            entity.HasOne(e => e.User)
-                .WithMany(u => u.Notifications)
-                .HasForeignKey(e => e.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // ========================
-        // Portfolio table
-        // ========================
-        modelBuilder.Entity<Portfolio>(entity =>
-        {
-            entity.ToTable("Portfolios", "dbo");
-            entity.HasKey(e => e.PortfolioId);
-            entity.Property(e => e.PortfolioId).HasColumnName("portfolio_id");
-            entity.Property(e => e.UserId).HasColumnName("user_id");
-            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(100);
-            entity.Property(e => e.Description).HasColumnName("description").HasMaxLength(500);
-            entity.Property(e => e.TotalInvested).HasColumnName("total_invested").HasColumnType("decimal(18,2)");
-            entity.Property(e => e.CurrentValue).HasColumnName("current_value").HasColumnType("decimal(18,2)");
-            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
-            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
-
-            // One User has many Portfolios
-            entity.HasOne(e => e.User)
-                .WithMany(u => u.Portfolios)
-                .HasForeignKey(e => e.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // ========================
-        // Investment table
-        // ========================
-        modelBuilder.Entity<Investment>(entity =>
-        {
-            entity.ToTable("Investments", "dbo");
-            entity.HasKey(e => e.InvestmentId);
-            entity.Property(e => e.InvestmentId).HasColumnName("investment_id");
-            entity.Property(e => e.PortfolioId).HasColumnName("portfolio_id");
-            entity.Property(e => e.AssetName).HasColumnName("asset_name").HasMaxLength(200);
-            entity.Property(e => e.AssetSymbol).HasColumnName("asset_symbol").HasMaxLength(20);
-            entity.Property(e => e.Quantity).HasColumnName("quantity").HasColumnType("decimal(18,6)");
-            entity.Property(e => e.PurchasePrice).HasColumnName("purchase_price").HasColumnType("decimal(18,4)");
-            entity.Property(e => e.CurrentPrice).HasColumnName("current_price").HasColumnType("decimal(18,4)");
-            entity.Property(e => e.PurchaseDate).HasColumnName("purchase_date");
-            entity.Property(e => e.InvestmentType).HasColumnName("investment_type").HasMaxLength(50);
-
-            // One Portfolio has many Investments
-            entity.HasOne(e => e.Portfolio)
-                .WithMany(p => p.Investments)
-                .HasForeignKey(e => e.PortfolioId)
-                .OnDelete(DeleteBehavior.Cascade);
+        // WALLET TRANSACTION CONFIGURATION
+        modelBuilder.Entity<WalletTransaction>(e => {
+            // WalletTransaction -> UserWallet (many-to-one)
+            e.HasOne(w => w.Wallet)
+                .WithMany(uw => uw.WalletTransactions)
+                .HasForeignKey(w => w.WalletId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

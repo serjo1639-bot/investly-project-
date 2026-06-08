@@ -1,26 +1,34 @@
+// USER ROLE - JOIN TABLE for Many-to-Many between User and Role
+// In relational databases, many-to-many relationships need a JOIN table.
+// A User can have MANY Roles, and a Role can belong to MANY Users.
+// UserRole is that bridge: each row links one user to one role.
+//
+// Why not just a RoleId on the User table?
+// Because a user can have MULTIPLE roles (e.g., "Investor" AND "Entrepreneur").
+
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace InvestlyFullAPI.Models;
-
-// Join table for the many-to-many relationship between Users and Roles
-// One user can have many roles, and one role can belong to many users
-public class UserRole
+namespace Investly_Backend.Models
 {
-    // Foreign key to the User table
-    public int UserId { get; set; }
+    [Table("UserRoles")]
+    public class UserRole
+    {
+        [Required]
+        public int UserId { get; set; }
 
-    // Foreign key to the Role table
-    public int RoleId { get; set; }
+        [Required]
+        public int RoleId { get; set; }
 
-    // Timestamp of when this role was assigned to the user
-    public DateTime AssignedAt { get; set; } = DateTime.UtcNow;
+        [Required]
+        public DateTime AssignedAt { get; set; }
 
-    // Navigation: the actual User object this link points to
-    [ForeignKey(nameof(UserId))]
-    public User User { get; set; } = null!;
+        // Navigation properties to the related User and Role
+        [ForeignKey("UserId")]
+        public User User { get; set; }
 
-    // Navigation: the actual Role object this link points to
-    [ForeignKey(nameof(RoleId))]
-    public Role Role { get; set; } = null!;
+        [ForeignKey("RoleId")]
+        public Role Role { get; set; }
+    }
 }

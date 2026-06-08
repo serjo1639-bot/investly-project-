@@ -1,13 +1,17 @@
-using InvestlyFullAPI.Interfaces;
-using Microsoft.AspNetCore.Authorization;
+// ============================================================
+// NOTIFICATIONS CONTROLLER - User notification management
+// ============================================================
+
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Investly_Backend.DTOs;
+using Investly_Backend.Interfaces;
 
-namespace InvestlyFullAPI.Controllers;
+namespace Investly_Backend.Controllers;
 
-// NotificationsController lets the frontend read and update in-app notifications.
-// New notifications are created by services, not directly by this controller.
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class NotificationsController : ControllerBase
 {
     private readonly INotificationService _notificationService;
@@ -17,44 +21,44 @@ public class NotificationsController : ControllerBase
         _notificationService = notificationService;
     }
 
-    // GET /api/notifications/{userId}?isRead=false
-    // isRead is optional: omit it for all notifications, true for read, false for unread.
-    [HttpGet("{userId:int}")]
-    [Authorize]
-    public async Task<IActionResult> GetNotifications(int userId, [FromQuery] bool? isRead)
+    // GET /api/notifications - Paginated notification list
+    [HttpGet]
+    public async Task<IActionResult> GetNotifications([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool unreadOnly = false)
     {
-        var notifications = await _notificationService.GetUserNotificationsAsync(userId, isRead);
-        return Ok(notifications);
+        var userId = GetUserIdFromClaims();
+        if (userId == null)
+            return Unauthorized(new ApiResponse { Success = false, Message = "User not found" });
+        var result = await _notificationService.GetAllAsync(userId.Value, page, pageSize, unreadOnly);
+        return Ok(result);
     }
 
-    // GET /api/notifications/{userId}/unread-count
-    // Useful for showing a badge count in the frontend navigation/header.
-    [HttpGet("{userId:int}/unread-count")]
-    [Authorize]
-    public async Task<IActionResult> GetUnreadCount(int userId)
+    // GET /api/notifications/unread-count
+    [HttpGet("unread-count")]
+    public async Task<IActionResult> GetUnreadCount()
     {
-        var count = await _notificationService.GetUnreadCountAsync(userId);
+        var userId = GetUserIdFromClaims();
+        if (userId == null)
+            return Unauthorized(new ApiResponse { Success = false, Message = "User not found" });
+        var count = await _notificationService.GetUnreadCountAsync(userId.Value);
         return Ok(new { UnreadCount = count });
     }
 
-    // PUT /api/notifications/{notificationId}/read?userId=1
-    // Marks one notification as read. NoContent means the update succeeded
-    // and there is no response body to return.
-    [HttpPut("{notificationId:int}/read")]
-    [Authorize]
-    public async Task<IActionResult> MarkAsRead(int notificationId, [FromQuery] int userId)
+    // POST /api/notifications/mark-read - Mark specific notifications as read
+    [HttpPost("mark-read")]
+    public async Task<IActionResult> MarkAsRead([FromBody] MarkReadRequest request)
     {
-        await _notificationService.MarkAsReadAsync(notificationId, userId);
-        return NoContent();
+        var userId = GetUserIdFromClaims();
+        if (userId == null)
+            return Unauthorized(new ApiResponse { Success = false, Message = "User not found" });
+        await _notificationService.MarkAsReadAsync(userId.Value, request.NotificationIds);
+        return Ok(new ApiResponse { Success = true, Message = "Marked as read" });
     }
 
-    // PUT /api/notifications/{userId}/read-all
-    // Bulk update for when the user clicks something like "Mark all as read".
-    [HttpPut("{userId:int}/read-all")]
-    [Authorize]
-    public async Task<IActionResult> MarkAllAsRead(int userId)
+    private int? GetUserIdFromClaims()
     {
-        await _notificationService.MarkAllAsReadAsync(userId);
-        return NoContent();
+        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
+            return userId;
+        return null;
     }
 }

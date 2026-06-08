@@ -1,14 +1,20 @@
-using InvestlyFullAPI.DTOs.User;
-using InvestlyFullAPI.Interfaces;
-using Microsoft.AspNetCore.Authorization;
+// ============================================================
+// USERS CONTROLLER - User and profile management
+// ============================================================
+// Some endpoints are admin-only (user list, activate/deactivate).
+// Profile endpoints use the authenticated user's ID from JWT.
+// ============================================================
+
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Investly_Backend.DTOs;
+using Investly_Backend.Interfaces;
 
-namespace InvestlyFullAPI.Controllers;
+namespace Investly_Backend.Controllers;
 
-// UsersController manages user profiles
-// Most endpoints require authentication (JWT token in Authorization header)
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
@@ -18,90 +24,114 @@ public class UsersController : ControllerBase
         _userService = userService;
     }
 
-    // GET /api/users
-    // Returns all users in the system
-    // Only accessible by authenticated users
+    // GET /api/users - Admin: list all users
+    [Authorize(Roles = "Admin")]
     [HttpGet]
-    [Authorize]
-    public async Task<IActionResult> GetAllUsers()
+    public async Task<IActionResult> GetUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
     {
-        var users = await _userService.GetAllUsersAsync();
+        var users = await _userService.GetAllAsync(page, pageSize, search);
         return Ok(users);
     }
 
-    // GET /api/users/{id}
-    // Returns a single user by ID
-    [HttpGet("{id:int}")]
-    [Authorize]
-    public async Task<IActionResult> GetUserById(int id)
+    // GET /api/users/{id} - Single user
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetUser(int id)
     {
-        var user = await _userService.GetUserByIdAsync(id);
+        var user = await _userService.GetByIdAsync(id);
         if (user == null)
-        {
-            return NotFound(new { Message = "User not found" });
-        }
+            return NotFound(new ApiResponse { Success = false, Message = "User not found" });
         return Ok(user);
     }
 
-    // PUT /api/users/{id}
-    // Updates a user's profile information
-    [HttpPut("{id:int}")]
-    [Authorize]
-    public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserDto updateDto)
+    // PUT /api/users/{id} - Update user profile
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserRequest request)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
-
-        var user = await _userService.UpdateUserAsync(id, updateDto);
-        if (user == null)
-        {
-            return NotFound(new { Message = "User not found" });
-        }
-        return Ok(user);
+        var result = await _userService.UpdateUserAsync(id, request);
+        return Ok(result);
     }
 
-    // DELETE /api/users/me
-    // Allows the authenticated user to delete their own account
-    [HttpDelete("me")]
-    [Authorize]
-    public async Task<IActionResult> DeleteMyAccount()
-    {
-        var userId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
-        var result = await _userService.DeleteMyAccountAsync(userId);
-        if (!result)
-        {
-            return NotFound(new { Message = "User not found" });
-        }
-        return NoContent();
-    }
-
-    // DELETE /api/users/{id}/deactivate
-    // Soft-deletes a user (marks as inactive)
-    [HttpDelete("{id:int}/deactivate")]
-    [Authorize]
+    // POST /api/users/{id}/deactivate - Admin: soft-delete
+    [Authorize(Roles = "Admin")]
+    [HttpPost("{id}/deactivate")]
     public async Task<IActionResult> DeactivateUser(int id)
     {
         var result = await _userService.DeactivateUserAsync(id);
-        if (!result)
-        {
-            return NotFound(new { Message = "User not found" });
-        }
-        return NoContent();
+        return Ok(result);
     }
 
-    // PATCH /api/users/{id}/activate
-    // Reactivates a deactivated user
-    [HttpPatch("{id:int}/activate")]
-    [Authorize]
+    // POST /api/users/{id}/activate - Admin: restore
+    [Authorize(Roles = "Admin")]
+    [HttpPost("{id}/activate")]
     public async Task<IActionResult> ActivateUser(int id)
     {
         var result = await _userService.ActivateUserAsync(id);
-        if (!result)
-        {
-            return NotFound(new { Message = "User not found" });
-        }
-        return NoContent();
+        return Ok(result);
+    }
+
+    // GET /api/users/{id}/wallet - User's wallet
+    [HttpGet("{id}/wallet")]
+    public async Task<IActionResult> GetUserWallet(int id)
+    {
+        var wallet = await _userService.GetWalletAsync(id);
+        if (wallet == null)
+            return NotFound(new ApiResponse { Success = false, Message = "Wallet not found" });
+        return Ok(wallet);
+    }
+
+    // POST /api/users/investor-profile - Create investor KYC profile
+    [HttpPost("investor-profile")]
+    public async Task<IActionResult> CreateInvestorProfile([FromBody] CreateInvestorProfileRequest request)
+    {
+        var userId = GetUserIdFromClaims();
+        if (userId == null)
+            return Unauthorized(new ApiResponse { Success = false, Message = "User not found" });
+        var result = await _userService.CreateInvestorProfileAsync(userId.Value, request);
+        return Ok(result);
+    }
+
+    // POST /api/users/entrepreneur-profile - Create entrepreneur profile
+    [HttpPost("entrepreneur-profile")]
+    public async Task<IActionResult> CreateEntrepreneurProfile([FromBody] CreateEntrepreneurProfileRequest request)
+    {
+        var userId = GetUserIdFromClaims();
+        if (userId == null)
+            return Unauthorized(new ApiResponse { Success = false, Message = "User not found" });
+        var result = await _userService.CreateEntrepreneurProfileAsync(userId.Value, request);
+        return Ok(result);
+    }
+
+    // GET /api/users/investor-profile - Get own KYC profile
+    [HttpGet("investor-profile")]
+    public async Task<IActionResult> GetInvestorProfile()
+    {
+        var userId = GetUserIdFromClaims();
+        if (userId == null)
+            return Unauthorized(new ApiResponse { Success = false, Message = "User not found" });
+        var profile = await _userService.GetInvestorProfileAsync(userId.Value);
+        if (profile == null)
+            return NotFound(new ApiResponse { Success = false, Message = "Investor profile not found" });
+        return Ok(profile);
+    }
+
+    // GET /api/users/entrepreneur-profile - Get own entrepreneur profile
+    [HttpGet("entrepreneur-profile")]
+    public async Task<IActionResult> GetEntrepreneurProfile()
+    {
+        var userId = GetUserIdFromClaims();
+        if (userId == null)
+            return Unauthorized(new ApiResponse { Success = false, Message = "User not found" });
+        var profile = await _userService.GetEntrepreneurProfileAsync(userId.Value);
+        if (profile == null)
+            return NotFound(new ApiResponse { Success = false, Message = "Entrepreneur profile not found" });
+        return Ok(profile);
+    }
+
+    private int? GetUserIdFromClaims()
+    {
+        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
+            return userId;
+        return null;
     }
 }

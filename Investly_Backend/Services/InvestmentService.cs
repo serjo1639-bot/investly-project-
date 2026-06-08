@@ -1,148 +1,255 @@
-using InvestlyFullAPI.Data;
-using InvestlyFullAPI.DTOs.Investment;
-using InvestlyFullAPI.Interfaces;
-using InvestlyFullAPI.Models;
+// ============================================================
+// INVESTMENT SERVICE - Handles the investment lifecycle
+// ============================================================
+// THE INVESTMENT FLOW:
+// 1. Investor creates investment (Amount is LOCKED in wallet)
+// 2. Investor confirms (Amount is PERMANENTLY deducted)
+// 3. OR Investor cancels (Amount is RETURNED to wallet)
+//
+// WHY TWO-STEP? This mimics how real crowdfunding works.
+// The "Pending" state lets the investor review before committing.
+// It's like a "hold" on a credit card - reserved, not charged.
+// ============================================================
+
 using Microsoft.EntityFrameworkCore;
+using Investly_Backend.Interfaces;
+using Investly_Backend.Models;
+using Investly_Backend.Data;
+using Investly_Backend.DTOs;
 
-namespace InvestlyFullAPI.Services;
+namespace Investly_Backend.Services;
 
-// InvestmentService manages individual assets within portfolios
 public class InvestmentService : IInvestmentService
 {
     private readonly AppDbContext _context;
-    private readonly INotificationService _notificationService;
 
-    public InvestmentService(AppDbContext context, INotificationService notificationService)
+    public InvestmentService(AppDbContext context)
     {
         _context = context;
-        _notificationService = notificationService;
     }
 
-    // Get all investments in a portfolio
-    public async Task<List<InvestmentDto>> GetPortfolioInvestmentsAsync(int portfolioId, int userId)
+    public async Task<PaginatedResult<MyInvestmentDto>> GetByUserAsync(int userId, int page = 1, int pageSize = 10)
     {
-        // First verify the portfolio belongs to the user (security check)
-        var portfolio = await _context.Portfolios
-            .FirstOrDefaultAsync(p => p.PortfolioId == portfolioId && p.UserId == userId);
+        // First find the user's investor profile
+        var profile = await _context.InvestorProfiles.FirstOrDefaultAsync(ip => ip.UserId == userId);
+        if (profile == null)
+        {
+            return new PaginatedResult<MyInvestmentDto>
+            {
+                Items = new List<MyInvestmentDto>(),
+                TotalCount = 0,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
 
-        if (portfolio == null) return new List<InvestmentDto>();
-
-        var investments = await _context.Investments
-            .Where(i => i.PortfolioId == portfolioId)
-            .OrderByDescending(i => i.PurchaseDate)
+        // Then get investments for that profile
+        var query = _context.Investments.Where(i => i.InvestorProfileId == profile.ProfileId);
+        var total = await query.CountAsync();
+        var investments = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Include(i => i.Project)  // Need project data for display
             .ToListAsync();
 
-        return investments.Select(MapToDto).ToList();
-    }
-
-    // Add a new investment to a portfolio
-    public async Task<InvestmentDto?> CreateInvestmentAsync(int portfolioId, int userId, CreateInvestmentDto dto)
-    {
-        // Verify the portfolio belongs to the user
-        var portfolio = await _context.Portfolios
-            .FirstOrDefaultAsync(p => p.PortfolioId == portfolioId && p.UserId == userId);
-
-        if (portfolio == null) return null;
-
-        // Create the investment
-        var investment = new Investment
+        var dtos = investments.Select(i => new MyInvestmentDto
         {
-            PortfolioId = portfolioId,
-            AssetName = dto.AssetName,
-            AssetSymbol = dto.AssetSymbol.ToUpper(), // Store symbols in uppercase
-            Quantity = dto.Quantity,
-            PurchasePrice = dto.PurchasePrice,
-            CurrentPrice = dto.CurrentPrice,
-            PurchaseDate = dto.PurchaseDate,
-            InvestmentType = dto.InvestmentType
+            InvestmentId = i.InvestmentId,
+            ProjectId = i.ProjectId,
+            ProjectTitle = i.Project?.Title ?? "",
+            Amount = i.Amount,
+            // FundingPercentage is COMPUTED - how much of the goal this investment covers
+            FundingPercentage = i.Project != null && i.Project.FundingGoal > 0
+                ? (i.Amount / i.Project.FundingGoal) * 100 : 0,
+            EquityPercentage = i.Project?.EquityOffered ?? 0,
+            Status = i.Status,
+            CreatedAt = i.CreatedAt,
+            ConfirmedAt = i.ConfirmedAt
+        }).ToList();
+
+        return new PaginatedResult<MyInvestmentDto>
+        {
+            Items = dtos,
+            TotalCount = total,
+            Page = page,
+            PageSize = pageSize
         };
-
-        _context.Investments.Add(investment);
-
-        // Update portfolio totals
-        portfolio.TotalInvested += dto.Quantity * dto.PurchasePrice;
-        portfolio.CurrentValue += dto.Quantity * dto.CurrentPrice;
-        portfolio.UpdatedAt = DateTime.UtcNow;
-
-        await _context.SaveChangesAsync();
-
-        // Notify the user
-        await _notificationService.CreateNotificationAsync(
-            userId,
-            $"Added {dto.Quantity} {dto.AssetSymbol} to your portfolio.",
-            "Success");
-
-        return MapToDto(investment);
     }
 
-    // Remove an investment from a portfolio
-    public async Task<bool> DeleteInvestmentAsync(int investmentId, int userId)
+    public async Task<InvestmentDto?> GetByIdAsync(int id)
     {
         var investment = await _context.Investments
-            .Include(i => i.Portfolio) // Need portfolio to verify ownership
-            .FirstOrDefaultAsync(i => i.InvestmentId == investmentId);
+            .Include(i => i.Project)
+            .FirstOrDefaultAsync(i => i.InvestmentId == id);
 
-        if (investment == null || investment.Portfolio.UserId != userId)
-            return false;
+        if (investment == null) return null;
 
-        var portfolio = investment.Portfolio;
-
-        // Subtract from portfolio totals
-        portfolio.TotalInvested -= investment.Quantity * investment.PurchasePrice;
-        portfolio.CurrentValue -= investment.Quantity * investment.CurrentPrice;
-        portfolio.UpdatedAt = DateTime.UtcNow;
-
-        _context.Investments.Remove(investment);
-        await _context.SaveChangesAsync();
-
-        await _notificationService.CreateNotificationAsync(
-            userId,
-            $"Removed {investment.AssetSymbol} from your portfolio.",
-            "Info");
-
-        return true;
-    }
-
-    // Simulate updating an asset's current market price
-    public async Task<InvestmentDto?> UpdatePriceAsync(int investmentId, int userId, decimal newPrice)
-    {
-        var investment = await _context.Investments
-            .Include(i => i.Portfolio)
-            .FirstOrDefaultAsync(i => i.InvestmentId == investmentId);
-
-        if (investment == null || investment.Portfolio.UserId != userId)
-            return null;
-
-        var portfolio = investment.Portfolio;
-
-        // Adjust the portfolio's current value by the price difference
-        var oldTotalValue = investment.Quantity * investment.CurrentPrice;
-        var newTotalValue = investment.Quantity * newPrice;
-        portfolio.CurrentValue = portfolio.CurrentValue - oldTotalValue + newTotalValue;
-        portfolio.UpdatedAt = DateTime.UtcNow;
-
-        // Update the investment's current price
-        investment.CurrentPrice = newPrice;
-
-        await _context.SaveChangesAsync();
-
-        return MapToDto(investment);
-    }
-
-    // Helper: convert Investment model to DTO
-    private static InvestmentDto MapToDto(Investment investment)
-    {
         return new InvestmentDto
         {
             InvestmentId = investment.InvestmentId,
-            PortfolioId = investment.PortfolioId,
-            AssetName = investment.AssetName,
-            AssetSymbol = investment.AssetSymbol,
-            Quantity = investment.Quantity,
-            PurchasePrice = investment.PurchasePrice,
-            CurrentPrice = investment.CurrentPrice,
-            PurchaseDate = investment.PurchaseDate,
-            InvestmentType = investment.InvestmentType
+            InvestorProfileId = investment.InvestorProfileId,
+            ProjectId = investment.ProjectId,
+            ProjectTitle = investment.Project?.Title ?? "",
+            Amount = investment.Amount,
+            Status = investment.Status,
+            FundingPercentage = investment.Project != null && investment.Project.FundingGoal > 0
+                ? (investment.Amount / investment.Project.FundingGoal) * 100 : 0,
+            EquityPercentage = investment.Project?.EquityOffered ?? 0,
+            CreatedAt = investment.CreatedAt,
+            ConfirmedAt = investment.ConfirmedAt
+        };
+    }
+
+    public async Task<InvestmentConfirmationDto?> CreateAsync(int userId, CreateInvestmentRequest request)
+    {
+        // Validate investor profile exists
+        var profile = await _context.InvestorProfiles.FirstOrDefaultAsync(ip => ip.UserId == userId);
+        if (profile == null) return null;
+
+        // Validate wallet has sufficient funds
+        var wallet = await _context.UserWallets.FirstOrDefaultAsync(w => w.UserId == userId);
+        if (wallet == null || wallet.Balance < request.Amount)
+            return null;
+
+        // Validate project exists and is approved for funding
+        var project = await _context.Projects.FindAsync(request.ProjectId);
+        if (project == null || project.Status != "Approved")
+            return null;
+
+        // LOCK the funds: move from available balance to locked
+        wallet.Balance -= request.Amount;
+        wallet.LockedAmount += request.Amount;
+
+        var investment = new Investment
+        {
+            InvestorProfileId = profile.ProfileId,
+            ProjectId = request.ProjectId,
+            Amount = request.Amount,
+            Status = "Pending",
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.Investments.Add(investment);
+
+        // Record the wallet transaction (audit trail)
+        var transaction = new WalletTransaction
+        {
+            WalletId = wallet.WalletId,
+            Type = "Investment",
+            Direction = "Debit",
+            Amount = -request.Amount,  // Negative = money leaving
+            Status = "Pending",
+            ReferenceNo = investment.InvestmentId.ToString(),
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.WalletTransactions.Add(transaction);
+
+        await _context.SaveChangesAsync();  // Saves ALL changes above
+
+        return new InvestmentConfirmationDto
+        {
+            InvestmentId = investment.InvestmentId,
+            Amount = investment.Amount,
+            ProjectTitle = project.Title,
+            FundingPercentage = project.FundingGoal > 0 ? (investment.Amount / project.FundingGoal) * 100 : 0,
+            EquityPercentage = project.EquityOffered ?? 0,
+            Status = investment.Status,
+            ConfirmedAt = investment.ConfirmedAt
+        };
+    }
+
+    // CONFIRM: permanently deduct locked funds, add to project's current amount
+    public async Task<bool> ConfirmAsync(int id)
+    {
+        var investment = await _context.Investments
+            .Include(i => i.Project)
+            .FirstOrDefaultAsync(i => i.InvestmentId == id);
+
+        if (investment == null || investment.Status != "Pending")
+            return false;
+
+        var profile = await _context.InvestorProfiles.FindAsync(investment.InvestorProfileId);
+        if (profile == null) return false;
+
+        var wallet = await _context.UserWallets.FirstOrDefaultAsync(w => w.UserId == profile.UserId);
+        if (wallet == null) return false;
+
+        // Remove from locked (it was already deducted from balance in CreateAsync)
+        wallet.LockedAmount -= investment.Amount;
+
+        investment.Status = "Confirmed";
+        investment.ConfirmedAt = DateTime.UtcNow;
+
+        // Add the investment amount to project's running total
+        if (investment.Project != null)
+        {
+            investment.Project.CurrentAmount += investment.Amount;
+        }
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    // CANCEL: return locked funds back to available balance
+    public async Task<bool> CancelAsync(int id)
+    {
+        var investment = await _context.Investments
+            .Include(i => i.InvestorProfile)
+            .FirstOrDefaultAsync(i => i.InvestmentId == id);
+
+        if (investment == null || investment.Status != "Pending")
+            return false;
+
+        var wallet = await _context.UserWallets.FirstOrDefaultAsync(w => w.UserId == investment.InvestorProfile.UserId);
+        if (wallet == null) return false;
+
+        // Reverse the lock: add back to balance, remove from locked
+        wallet.Balance += investment.Amount;
+        wallet.LockedAmount -= investment.Amount;
+
+        investment.Status = "Cancelled";
+
+        // Create a REFUND transaction for the audit trail
+        var transaction = new WalletTransaction
+        {
+            WalletId = wallet.WalletId,
+            Type = "Refund",
+            Direction = "Credit",
+            Amount = investment.Amount,
+            Status = "Completed",
+            ReferenceNo = investment.InvestmentId.ToString(),
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.WalletTransactions.Add(transaction);
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    // Returns anonymous object (no DTO) - TODO: create a proper PortfolioDto
+    public async Task<object> GetPortfolioSummaryAsync(int userId)
+    {
+        var profile = await _context.InvestorProfiles.FirstOrDefaultAsync(ip => ip.UserId == userId);
+        if (profile == null)
+        {
+            return new
+            {
+                TotalInvestments = 0,
+                TotalAmount = 0m,
+                ConfirmedInvestments = 0,
+                PendingInvestments = 0
+            };
+        }
+
+        var investments = await _context.Investments
+            .Where(i => i.InvestorProfileId == profile.ProfileId)
+            .ToListAsync();
+
+        return new
+        {
+            TotalInvestments = investments.Count,
+            TotalAmount = investments.Sum(i => i.Amount),
+            ConfirmedInvestments = investments.Count(i => i.Status == "Confirmed"),
+            PendingInvestments = investments.Count(i => i.Status == "Pending")
         };
     }
 }
