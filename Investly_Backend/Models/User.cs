@@ -67,6 +67,12 @@ namespace Investly_Backend.Models
         public bool IsActive { get; set; } = true;  // Soft-delete flag
 
         [Required]
+        public bool IsBlocked { get; set; } = false;  // Admin ban/suspend flag in the database
+
+        [Required]
+        public int DeletedPublishedProjects { get; set; } = 0;  // Counter used by the database schema
+
+        [Required]
         public bool EmailConfirmed { get; set; } = false;  // Email verification flag
 
         // ---- NAVIGATION PROPERTIES ----

@@ -70,7 +70,9 @@ public class AuthService : IAuthService
             PasswordHash = passwordHash,
             FirstName = dto.FirstName,
             LastName = dto.LastName,
-            Username = dto.Username,
+            // Mobile signup does not always send a username.
+            // The database requires usernames to be unique, so fall back to the email prefix + timestamp.
+            Username = BuildUsername(dto),
             Phone = dto.Phone,
             NationalId = dto.NationalId,
             IsActive = true,
@@ -83,13 +85,24 @@ public class AuthService : IAuthService
         _context.Users.Add(user);
         await _context.SaveChangesAsync();  // INSERT INTO Users ...
 
-        // Assign the "User" role to the new account
-        var userRole = await _context.Roles.FirstOrDefaultAsync(r => r.RoleName == "User");
-        if (userRole != null)
+        // Every account gets User. Investor/Entrepreneur can also be requested by the mobile app.
+        // Admin is intentionally not allowed through public registration.
+        var roleNames = new List<string> { "User" };
+        var requestedRole = NormalizeRequestedRole(dto.Role);
+        if (requestedRole != null)
+            roleNames.Add(requestedRole);
+
+        var roles = await _context.Roles.Where(r => roleNames.Contains(r.RoleName)).ToListAsync();
+        foreach (var role in roles)
         {
-            _context.UserRoles.Add(new UserRole { UserId = user.UserId, RoleId = userRole.RoleId });
-            await _context.SaveChangesAsync();  // INSERT INTO UserRoles ...
+            _context.UserRoles.Add(new UserRole
+            {
+                UserId = user.UserId,
+                RoleId = role.RoleId,
+                AssignedAt = DateTime.UtcNow
+            });
         }
+        await _context.SaveChangesAsync();  // INSERT INTO UserRoles ...
 
         // Every user gets a wallet with 0 balance automatically
         var wallet = new UserWallet
@@ -106,6 +119,29 @@ public class AuthService : IAuthService
 
         // Return JWT so user is logged in right after registration
         return await GenerateAuthResponseAsync(user);
+    }
+
+    private static string? NormalizeRequestedRole(string? role)
+    {
+        return role?.Trim().ToLowerInvariant() switch
+        {
+            "investor" => "Investor",
+            "entrepreneur" or "owner" => "Entrepreneur",
+            _ => null
+        };
+    }
+
+    private static string BuildUsername(RegisterRequest dto)
+    {
+        if (!string.IsNullOrWhiteSpace(dto.Username))
+            return dto.Username.Trim();
+
+        var emailPrefix = dto.Email.Split('@')[0].Trim();
+        if (emailPrefix.Length > 14)
+            emailPrefix = emailPrefix[..14];
+
+        // Users.Username is short and unique in the database, so keep the fallback compact.
+        return $"{emailPrefix}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
     }
 
     public async Task<bool> ChangePasswordAsync(int userId, ChangePasswordRequest dto)

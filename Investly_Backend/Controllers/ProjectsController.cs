@@ -129,6 +129,14 @@ public class ProjectsController : ControllerBase
         return Ok(result);
     }
 
+    // POST /api/projects/{id}/views - Count one project view.
+    [HttpPost("{id}/views")]
+    public async Task<IActionResult> IncrementViews(int id)
+    {
+        await _projectService.IncrementViewsAsync(id);
+        return Ok(true);
+    }
+
     // GET /api/projects/categories - List all categories
     [HttpGet("categories")]
     public async Task<IActionResult> GetCategories()

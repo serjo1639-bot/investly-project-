@@ -232,9 +232,17 @@ public class UserService : IUserService
         var profile = new EntrepreneurProfile
         {
             UserId = userId,
+            BankAccount = request.BankAccount,
+            BankName = request.BankName,
+            BankAccountName = request.CompanyName,
             CompanyName = request.CompanyName,
             Bio = request.Bio,
-            CreatedAt = DateTime.UtcNow
+            LinkedinUrl = request.LinkedinUrl,
+            WebsiteUrl = request.WebsiteUrl,
+            ExperienceYears = request.ExperienceYears,
+            City = request.City,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
 
         _context.EntrepreneurProfiles.Add(profile);

@@ -69,6 +69,33 @@ public class AppDbContext : DbContext
             e.HasIndex(u => u.Email).IsUnique();      // No two users can share an email
             e.HasIndex(u => u.NationalId).IsUnique();  // National ID must be unique
             e.HasIndex(u => u.Username).IsUnique();    // Username must be unique
+            e.Ignore(u => u.EmailConfirmed);           // Current database does not store email verification yet
+        });
+
+        modelBuilder.Entity<UserRole>(e => {
+            e.HasKey(ur => new { ur.UserId, ur.RoleId });
+
+            e.HasOne(ur => ur.User)
+                .WithMany(u => u.UserRoles)
+                .HasForeignKey(ur => ur.UserId);
+
+            e.HasOne(ur => ur.Role)
+                .WithMany(r => r.UserRoles)
+                .HasForeignKey(ur => ur.RoleId);
+        });
+
+        // USER ROLE CONFIGURATION
+        // UserRoles is a join table, so one row is identified by both IDs together.
+        modelBuilder.Entity<UserRole>(e => {
+            e.HasKey(ur => new { ur.UserId, ur.RoleId });
+
+            e.HasOne(ur => ur.User)
+                .WithMany(u => u.UserRoles)
+                .HasForeignKey(ur => ur.UserId);
+
+            e.HasOne(ur => ur.Role)
+                .WithMany(r => r.UserRoles)
+                .HasForeignKey(ur => ur.RoleId);
         });
 
         // PROJECT CONFIGURATION
@@ -102,6 +129,15 @@ public class AppDbContext : DbContext
                 .WithMany(uw => uw.WalletTransactions)
                 .HasForeignKey(w => w.WalletId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Notification>(e => {
+            // The current database stores one title/message. Map Arabic fields to those columns
+            // and mirror them into English fields in the service response.
+            e.Property(n => n.TitleAr).HasColumnName("Title");
+            e.Property(n => n.MessageAr).HasColumnName("Message");
+            e.Ignore(n => n.TitleEn);
+            e.Ignore(n => n.MessageEn);
         });
     }
 }

@@ -37,6 +37,9 @@ public class UsersController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetUser(int id)
     {
+        if (!CanAccessUser(id))
+            return Forbid();
+
         var user = await _userService.GetByIdAsync(id);
         if (user == null)
             return NotFound(new ApiResponse { Success = false, Message = "User not found" });
@@ -47,6 +50,9 @@ public class UsersController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserRequest request)
     {
+        if (!CanAccessUser(id))
+            return Forbid();
+
         var result = await _userService.UpdateUserAsync(id, request);
         return Ok(result);
     }
@@ -73,6 +79,9 @@ public class UsersController : ControllerBase
     [HttpGet("{id}/wallet")]
     public async Task<IActionResult> GetUserWallet(int id)
     {
+        if (!CanAccessUser(id))
+            return Forbid();
+
         var wallet = await _userService.GetWalletAsync(id);
         if (wallet == null)
             return NotFound(new ApiResponse { Success = false, Message = "Wallet not found" });
@@ -133,5 +142,11 @@ public class UsersController : ControllerBase
         if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
             return userId;
         return null;
+    }
+
+    private bool CanAccessUser(int id)
+    {
+        var currentUserId = GetUserIdFromClaims();
+        return currentUserId == id || User.IsInRole("Admin");
     }
 }

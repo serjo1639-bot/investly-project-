@@ -33,7 +33,8 @@ public class MediaService : IMediaService
         if (project == null) return null;
 
         // Get upload path from config (or use default)
-        var uploadsFolder = _configuration["Uploads:Path"] ?? "C:\\Users\\m.sowan\\Desktop\\investly_Backend_Complete\\uploads";
+        // Keep uploads inside the project by default instead of using an old absolute Desktop path.
+        var uploadsFolder = _configuration["Uploads:Path"] ?? "uploads";
         // Organize files by date: uploads/2026-06-01/filename.jpg
         var dateFolder = DateTime.UtcNow.ToString("yyyy-MM-dd");
         var fullFolder = Path.Combine(uploadsFolder, dateFolder);
@@ -100,7 +101,8 @@ public class MediaService : IMediaService
         if (media == null) return false;
 
         // Delete the PHYSICAL FILE from disk first
-        var uploadsFolder = _configuration["Uploads:Path"] ?? "C:\\Users\\m.sowan\\Desktop\\investly_Backend_Complete\\uploads";
+        // Same folder used during upload, so deleting a media record deletes the correct local file.
+        var uploadsFolder = _configuration["Uploads:Path"] ?? "uploads";
         var fullPath = Path.Combine(uploadsFolder, media.MediaUrl);
 
         if (File.Exists(fullPath))
