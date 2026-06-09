@@ -25,6 +25,7 @@
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Investly_Backend.Data;
 using Investly_Backend.DTOs;
 using Investly_Backend.Interfaces;
 
@@ -37,10 +38,12 @@ public class AuthController : ControllerBase
     // DEPENDENCY INJECTION: The interface is injected through constructor.
     // The DI container automatically provides the implementation (AuthService).
     private readonly IAuthService _authService;
+    private readonly AppDbContext _context;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, AppDbContext context)
     {
         _authService = authService;
+        _context = context;
     }
 
     // POST /api/auth/login - Public endpoint (no [Authorize])
@@ -52,6 +55,13 @@ public class AuthController : ControllerBase
         if (response == null)
             return Unauthorized(new ApiResponse { Success = false, Message = "Invalid credentials" });
         return Ok(response);
+    }
+
+    // POST /api/auth/login-email - Alias kept for clients generated from the Swagger file.
+    [HttpPost("login-email")]
+    public async Task<IActionResult> LoginEmail([FromBody] LoginRequest request)
+    {
+        return await Login(request);
     }
 
     // POST /api/auth/register - Create new account
@@ -74,6 +84,14 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    // POST /api/auth/logout - JWT logout is client-side; this endpoint lets clients complete the flow cleanly.
+    [Authorize]
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        return Ok(new ApiResponse { Success = true, Message = "Logged out" });
+    }
+
     // GET /api/auth/me - Returns current user's profile
     [Authorize]
     [HttpGet("me")]
@@ -84,6 +102,40 @@ public class AuthController : ControllerBase
             return Unauthorized(new ApiResponse { Success = false, Message = "User not found" });
         var user = await _authService.GetCurrentUserAsync(userId.Value);
         return Ok(user);
+    }
+
+    // GET /api/auth/profile - Same current-user profile under the Swagger route.
+    [Authorize]
+    [HttpGet("profile")]
+    public async Task<IActionResult> GetProfile()
+    {
+        return await GetCurrentUser();
+    }
+
+    // PUT /api/auth/profile - Updates only the authenticated user's own profile.
+    [Authorize]
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
+    {
+        var userId = GetUserIdFromClaims();
+        if (userId == null)
+            return Unauthorized(new ApiResponse { Success = false, Message = "User not found" });
+
+        var user = await _context.Users.FindAsync(userId.Value);
+        if (user == null)
+            return NotFound(new ApiResponse { Success = false, Message = "User not found" });
+
+        // Empty fields mean "do not change"; this keeps mobile partial updates simple.
+        if (!string.IsNullOrWhiteSpace(request.FirstName))
+            user.FirstName = request.FirstName;
+        if (!string.IsNullOrWhiteSpace(request.LastName))
+            user.LastName = request.LastName;
+        if (!string.IsNullOrWhiteSpace(request.Email))
+            user.Email = request.Email;
+
+        user.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return Ok(await _authService.GetCurrentUserAsync(userId.Value));
     }
 
     // ============================================================

@@ -13,7 +13,16 @@ public class AdminDashboardDto
     public int TotalInvestments { get; set; }
     public decimal TotalFunding { get; set; }
     public int PendingWithdrawals { get; set; }
-    public List<object> RecentActivities { get; set; } = new();
+    public List<AdminActivityDto> RecentActivities { get; set; } = new();
+}
+
+// Small dashboard activity item built from real database events.
+public class AdminActivityDto
+{
+    public string Type { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Details { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
 }
 
 // User info for admin management panel (includes roles + wallet balance)
@@ -54,4 +63,14 @@ public class PendingKycDto
     public decimal? AnnualIncome { get; set; }
     public string IdDocumentUrl { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+}
+
+// POST /api/admin/notifications/send body
+public class AdminSendNotificationRequest
+{
+    // Use a numeric user id, or "all" to send the same notification to every active user.
+    public string TargetUserId { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public string Type { get; set; } = "Admin";
 }

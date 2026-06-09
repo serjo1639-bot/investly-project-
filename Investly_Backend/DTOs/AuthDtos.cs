@@ -12,6 +12,8 @@ namespace Investly_Backend.DTOs;
 public class LoginRequest
 {
     public string Email { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
+    public string Role { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
 }
 
@@ -35,11 +37,14 @@ public class RegisterRequest
     public string Password { get; set; } = string.Empty;
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
     public string NationalId { get; set; } = string.Empty;
     public string Gender { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;  // Desired role (defaults to "User")
+    public string CompanyName { get; set; } = string.Empty;
+    public string Bio { get; set; } = string.Empty;
 }
 
 // POST /api/auth/refresh body (currently commented out)
@@ -67,5 +72,15 @@ public class ResetPasswordRequest
 public class ChangePasswordRequest
 {
     public string OldPassword { get; set; } = string.Empty;
+    public string CurrentPassword { get; set; } = string.Empty;
     public string NewPassword { get; set; } = string.Empty;
+}
+
+// PUT /api/auth/profile body
+public class UpdateProfileRequest
+{
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Bio { get; set; } = string.Empty;
 }

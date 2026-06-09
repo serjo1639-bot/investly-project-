@@ -13,6 +13,7 @@
 // ============================================================
 
 using System.Text;
+using System.Diagnostics;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -30,6 +31,9 @@ using Investly_Backend.Services;
 // - Logging
 // - Dependency Injection container (the "DI container")
 var builder = WebApplication.CreateBuilder(args);
+
+// Always use the same local URL so Swagger and the mobile app know where the API is.
+builder.WebHost.UseUrls("http://localhost:5000");
 
 // ---- DEPENDENCY INJECTION (DI) ----
 // DI is a pattern where classes receive their dependencies
@@ -160,12 +164,23 @@ var app = builder.Build();
 // ORDER MATTERS! Each request flows through these in sequence.
 // The general rule: put auth-related middleware BEFORE endpoints.
 
-// Swagger UI (only in development, for API testing)
-if (app.Environment.IsDevelopment())
+// Swagger is enabled for this graduation project so API testing is always easy.
+app.UseSwagger();
+app.UseSwaggerUI();
+
+// Visiting http://localhost:5000 should take you straight to Swagger.
+// ExcludeFromDescription keeps this helper route out of Swagger because it is not a real API endpoint.
+app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+
+// Open Swagger automatically when the API starts, even if Rider ignores launchSettings.json.
+app.Lifetime.ApplicationStarted.Register(() =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    Process.Start(new ProcessStartInfo
+    {
+        FileName = "http://localhost:5000/swagger",
+        UseShellExecute = true
+    });
+});
 
 // Custom exception handler (wraps uncaught errors in JSON responses)
 app.UseMiddleware<ExceptionMiddleware>();

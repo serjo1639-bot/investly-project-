@@ -33,6 +33,7 @@ public class AdminService : IAdminService
         var projects = await _context.Projects.ToListAsync();
         var investments = await _context.Investments.ToListAsync();
         var pendingWithdrawals = await _context.WithdrawalRequests.CountAsync(w => w.Status == "Pending");
+        var recentActivities = await GetRecentActivitiesAsync();
 
         return new AdminDashboardDto
         {
@@ -42,8 +43,57 @@ public class AdminService : IAdminService
             TotalInvestments = investments.Count,
             TotalFunding = investments.Where(i => i.Status == "Confirmed").Sum(i => i.Amount),
             PendingWithdrawals = pendingWithdrawals,
-            RecentActivities = new List<object>()  // TODO: populate with real activity
+            RecentActivities = recentActivities
         };
+    }
+
+    private async Task<List<AdminActivityDto>> GetRecentActivitiesAsync()
+    {
+        // Keep this dashboard feed simple: combine the latest real events from core tables.
+        // No fake/sample data is created here; if the database is empty, the list is empty.
+        var projects = await _context.Projects
+            .OrderByDescending(p => p.CreatedAt)
+            .Take(5)
+            .Select(p => new AdminActivityDto
+            {
+                Type = "Project",
+                Title = "Project created",
+                Details = p.Title,
+                CreatedAt = p.CreatedAt
+            })
+            .ToListAsync();
+
+        var investments = await _context.Investments
+            .Include(i => i.Project)
+            .OrderByDescending(i => i.CreatedAt)
+            .Take(5)
+            .Select(i => new AdminActivityDto
+            {
+                Type = "Investment",
+                Title = "Investment " + i.Status,
+                Details = i.Project.Title + " - " + i.Amount,
+                CreatedAt = i.CreatedAt
+            })
+            .ToListAsync();
+
+        var walletTransactions = await _context.WalletTransactions
+            .OrderByDescending(t => t.CreatedAt)
+            .Take(5)
+            .Select(t => new AdminActivityDto
+            {
+                Type = "Wallet",
+                Title = t.Type + " " + t.Status,
+                Details = t.Description ?? t.Amount.ToString(),
+                CreatedAt = t.CreatedAt
+            })
+            .ToListAsync();
+
+        return projects
+            .Concat(investments)
+            .Concat(walletTransactions)
+            .OrderByDescending(a => a.CreatedAt)
+            .Take(10)
+            .ToList();
     }
 
     public async Task<PaginatedResult<UserManagementDto>> GetAllUsersAsync(int page = 1, int pageSize = 10, string search = null, string role = null)
