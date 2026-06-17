@@ -10,11 +10,13 @@ export const investmentsApi = {
     projectId?: string;
   }): Promise<PaginatedResponse<Investment>> => {
     const response = await apiClient.get('/admin/investments', { params });
-    const data = response.data;
-    if (Array.isArray(data)) {
-      return { data, total: data.length, page: 1, pageSize: data.length, totalPages: 1 };
+    // Backend: { success, data: [...investments] }
+    const envelope = response.data;
+    const items = envelope?.data ?? (Array.isArray(envelope) ? envelope : []);
+    if (Array.isArray(items)) {
+      return { data: items, total: items.length, page: 1, pageSize: items.length, totalPages: 1 };
     }
-    return data?.data ?? data;
+    return { data: items?.items ?? [], total: items?.totalCount ?? 0, page: 1, pageSize: 20, totalPages: 1 };
   },
 
   getInvestmentById: async (id: string): Promise<Investment> => {

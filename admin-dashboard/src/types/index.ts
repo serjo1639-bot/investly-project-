@@ -254,19 +254,39 @@ export interface AuthSession extends AuthTokens {
 
 // ─── Chart Data Types ───────────────────────────────────────────────────────────
 
-export interface ChartDataPoint {
-  label: string;
-  value: number;
-  [key: string]: string | number;
-}
-
-export interface UserGrowthData {
+export interface MonthlyUserPoint {
   month: string;
   investors: number;
   owners: number;
 }
 
-export interface RevenueData {
+export interface MonthlyRevenuePoint {
   month: string;
-  amount: number;
+  revenue: number;
+  investments: number;
+}
+
+export interface ProjectStatusBreakdown {
+  active: number;
+  pending: number;
+  completed: number;
+  inactive: number;
+  rejected: number;
+}
+
+export interface ChartData {
+  userGrowth: MonthlyUserPoint[];
+  revenue: MonthlyRevenuePoint[];
+  projectStatus: ProjectStatusBreakdown;
+}
+
+export interface RecentActivityItem {
+  id: string;
+  type: 'investment' | 'registration' | 'project' | 'payment';
+  userName: string;
+  action: string;
+  projectTitle?: string | null;
+  amount?: number | null;
+  date: string;
+  status?: string | null;
 }

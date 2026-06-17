@@ -7,12 +7,23 @@
  */
 
 import apiClient from './config';
-import { DashboardStats } from '@/types';
+import { ChartData, DashboardStats, RecentActivityItem } from '@/types';
 
 export const adminApi = {
   getStats: async (): Promise<DashboardStats> => {
     const response = await apiClient.get('/admin/stats');
     return response.data?.data ?? response.data;
+  },
+
+  getChartData: async (): Promise<ChartData> => {
+    const response = await apiClient.get('/admin/chart-data');
+    return response.data?.data ?? response.data;
+  },
+
+  getRecentActivity: async (count = 10): Promise<RecentActivityItem[]> => {
+    const response = await apiClient.get('/admin/recent-activity', { params: { count } });
+    const data = response.data?.data ?? response.data;
+    return Array.isArray(data) ? data : [];
   },
 
   getAllPayments: async (params?: {
@@ -23,11 +34,13 @@ export const adminApi = {
     search?: string;
   }) => {
     const response = await apiClient.get('/admin/payments', { params });
-    const data = response.data;
-    if (Array.isArray(data)) {
-      return { data, total: data.length, page: 1, pageSize: data.length, totalPages: 1 };
+    // Backend: { success, data: [...payments] }
+    const envelope = response.data;
+    const items = envelope?.data ?? (Array.isArray(envelope) ? envelope : []);
+    if (Array.isArray(items)) {
+      return { data: items, total: items.length, page: 1, pageSize: items.length, totalPages: 1 };
     }
-    return data?.data ?? data;
+    return { data: items?.items ?? [], total: items?.totalCount ?? 0, page: 1, pageSize: 20, totalPages: 1 };
   },
 
   approvePayment: async (paymentId: string) => {
@@ -62,11 +75,13 @@ export const adminApi = {
 
   getUserWallets: async (params?: { page?: number; pageSize?: number; search?: string }) => {
     const response = await apiClient.get('/admin/wallets', { params });
-    const data = response.data;
-    if (Array.isArray(data)) {
-      return { data, total: data.length, page: 1, pageSize: data.length, totalPages: 1 };
+    // Backend: { success, data: [...wallets] }
+    const envelope = response.data;
+    const items = envelope?.data ?? (Array.isArray(envelope) ? envelope : []);
+    if (Array.isArray(items)) {
+      return { data: items, total: items.length, page: 1, pageSize: items.length, totalPages: 1 };
     }
-    return data?.data ?? data;
+    return { data: items?.items ?? [], total: items?.totalCount ?? 0, page: 1, pageSize: 20, totalPages: 1 };
   },
 
   sendNotification: async (payload: {

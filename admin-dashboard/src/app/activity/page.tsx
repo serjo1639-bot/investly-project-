@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { adminApi } from '@/lib/api/admin';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Card } from '@/components/ui/Card';
@@ -62,22 +63,6 @@ const COLOR_MAP: Record<string, string> = {
   approve:    'bg-success-light text-success',
 };
 
-// ── Shared mock data — also consumed by the per-admin detail page ─────────────
-
-export const MOCK_ACTIVITY_LOGS: ActivityLog[] = [
-  { id: 'l1',  adminId: 'admin-1', adminName: 'Super Admin',  action: 'Logged in',         entity: 'session',       type: 'login',    timestamp: new Date(Date.now() - 5 * 60000).toISOString(),          ip: '192.168.1.100' },
-  { id: 'l2',  adminId: 'admin-2', adminName: 'Ahmad Admin',  action: 'Approved project',  entity: 'project',       entityId: 'p1',  details: '"Advanced Tech Platform" was approved',      type: 'approve',  timestamp: new Date(Date.now() - 32 * 60000).toISOString() },
-  { id: 'l3',  adminId: 'admin-1', adminName: 'Super Admin',  action: 'Banned user',       entity: 'user',          entityId: 'u5',  details: 'User "Suspicious Account" was banned',       type: 'ban',      timestamp: new Date(Date.now() - 60 * 60000).toISOString() },
-  { id: 'l4',  adminId: 'admin-3', adminName: 'Sara Mod',     action: 'Rejected project',  entity: 'project',       entityId: 'p8',  details: '"Low Quality Project" was rejected',         type: 'project',  timestamp: new Date(Date.now() - 2 * 3600000).toISOString() },
-  { id: 'l5',  adminId: 'admin-2', adminName: 'Ahmad Admin',  action: 'Updated user',      entity: 'user',          entityId: 'u3',  details: 'Updated email for "Fatima Zahra"',           type: 'user',     timestamp: new Date(Date.now() - 3 * 3600000).toISOString() },
-  { id: 'l6',  adminId: 'admin-1', adminName: 'Super Admin',  action: 'Updated settings',  entity: 'system',        details: 'Changed platform currency to LYD',                           type: 'settings', timestamp: new Date(Date.now() - 5 * 3600000).toISOString() },
-  { id: 'l7',  adminId: 'admin-1', adminName: 'Super Admin',  action: 'Deleted project',   entity: 'project',       entityId: 'p10', details: '"Test Project" was permanently deleted',     type: 'delete',   timestamp: new Date(Date.now() - 86400000).toISOString() },
-  { id: 'l8',  adminId: 'admin-2', adminName: 'Ahmad Admin',  action: 'Sent notification', entity: 'notifications', details: 'Sent system alert to all users',                             type: 'settings', timestamp: new Date(Date.now() - 86400000 * 2).toISOString() },
-  { id: 'l9',  adminId: 'admin-3', adminName: 'Sara Mod',     action: 'Suspended user',    entity: 'user',          entityId: 'u7',  details: 'User "Omar Said" was suspended — spam',     type: 'ban',      timestamp: new Date(Date.now() - 86400000 * 2).toISOString() },
-  { id: 'l10', adminId: 'admin-2', adminName: 'Ahmad Admin',  action: 'Approved project',  entity: 'project',       entityId: 'p5',  details: '"Digital Health App" was approved',          type: 'approve',  timestamp: new Date(Date.now() - 86400000 * 3).toISOString() },
-  { id: 'l11', adminId: 'admin-1', adminName: 'Super Admin',  action: 'Logged in',         entity: 'session',       type: 'login',    timestamp: new Date(Date.now() - 86400000 * 3).toISOString(),         ip: '192.168.1.100' },
-  { id: 'l12', adminId: 'admin-3', adminName: 'Sara Mod',     action: 'Updated user',      entity: 'user',          entityId: 'u2',  details: 'Verified KYC for "Fatima Zahra"',            type: 'user',     timestamp: new Date(Date.now() - 86400000 * 4).toISOString() },
-];
 
 // ── Filter options ────────────────────────────────────────────────────────────
 
@@ -96,10 +81,17 @@ const TYPE_OPTIONS = [
 
 export default function ActivityPage() {
   const router = useRouter();
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
 
-  const filtered = MOCK_ACTIVITY_LOGS.filter((log) => {
+  useEffect(() => {
+    adminApi.getActivityLogs().then((data) => {
+      if (Array.isArray(data)) setLogs(data);
+    }).catch(() => setLogs([]));
+  }, []);
+
+  const filtered = logs.filter((log) => {
     if (typeFilter && log.type !== typeFilter) return false;
     if (search) {
       const q = search.toLowerCase();

@@ -1,34 +1,39 @@
 {
   "expo": {
-    "name": "myApp",
-    "slug": "myApp",
+    "name": "Investly",
+    "slug": "investly-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "scheme": "investly",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#5B4CE7"
     },
+    "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "ly.investly.mobile"
     },
     "android": {
+      "package": "ly.investly.mobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#5B4CE7"
       },
       "edgeToEdgeEnabled": true
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "extra": {
       "eas": {},
-      "useMockApi": true,
-      "apiBaseUrl": ""
+      "useMockApi": false,
+      "apiBaseUrl": "http://192.168.1.6:5231/api"
     }
   }
 }

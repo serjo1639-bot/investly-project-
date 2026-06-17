@@ -35,27 +35,6 @@ const REASON_OPTIONS = [
   { value: 'adjustment', label: 'Adjustment' },
 ];
 
-// ── Mock fallback data ────────────────────────────────────────────────────────
-
-const BALANCE_POOL = [5000, 12500, 0, 2500, 45000, 1000, 8000, 0, 17500, 3300];
-
-const MOCK_WALLETS: WalletRecord[] = Array.from({ length: 20 }, (_, i) => ({
-  userId: `user-${i + 1}`,
-  userName: ['Ahmad Al-Mansouri', 'Fatima Zahra', 'Mahmoud Ibrahim', 'Sara Ali', 'Khaled Hassan', 'Omar Said'][i % 6],
-  userEmail: `user${i + 1}@example.com`,
-  balance: BALANCE_POOL[i % BALANCE_POOL.length],
-  totalDeposits: BALANCE_POOL[i % BALANCE_POOL.length] * 2,
-  totalWithdrawals: BALANCE_POOL[i % BALANCE_POOL.length],
-  lastActivity: new Date(Date.now() - i * 86400000).toISOString(),
-  status: (['active', 'active', 'active', 'frozen', 'inactive'] as WalletRecord['status'][])[i % 5],
-}));
-
-// ── Stat helpers ──────────────────────────────────────────────────────────────
-
-const totalVolume   = MOCK_WALLETS.reduce((s, w) => s + w.balance, 0);
-const avgBalance    = Math.round(totalVolume / MOCK_WALLETS.length);
-const activeWallets = MOCK_WALLETS.filter((w) => w.balance > 0).length;
-const zeroBalance   = MOCK_WALLETS.filter((w) => w.balance === 0).length;
 
 // ── Page component ────────────────────────────────────────────────────────────
 
@@ -82,16 +61,8 @@ export default function WalletsPage() {
       setWallets(res.data ?? []);
       setTotal(res.total ?? 0);
     } catch {
-      let filtered = MOCK_WALLETS.filter((w) => {
-        if (search && !w.userName.toLowerCase().includes(search.toLowerCase()) && !w.userEmail.toLowerCase().includes(search.toLowerCase())) return false;
-        if (balanceFilter === 'zero')   return w.balance === 0;
-        if (balanceFilter === 'low')    return w.balance > 0 && w.balance < 1000;
-        if (balanceFilter === 'medium') return w.balance >= 1000 && w.balance <= 10000;
-        if (balanceFilter === 'high')   return w.balance > 10000;
-        return true;
-      });
-      setTotal(filtered.length);
-      setWallets(filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
+      setWallets([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -123,13 +94,18 @@ export default function WalletsPage() {
     }
   };
 
-  // ── Stat cards ──────────────────────────────────────────────────────────────
+  // ── Stat cards (computed from real data) ─────────────────────────────────────
+
+  const totalVolume   = wallets.reduce((s, w) => s + w.balance, 0);
+  const avgBalance    = wallets.length > 0 ? Math.round(totalVolume / wallets.length) : 0;
+  const activeWallets = wallets.filter((w) => w.balance > 0).length;
+  const zeroBalance   = wallets.filter((w) => w.balance === 0).length;
 
   const statCards = [
-    { label: 'Total Wallet Volume', value: formatCurrency(totalVolume),      color: 'text-teal' },
-    { label: 'Average Balance',     value: formatCurrency(avgBalance),        color: 'text-primary' },
-    { label: 'Active Wallets',      value: activeWallets.toString(),          color: 'text-success' },
-    { label: 'Zero Balance',        value: zeroBalance.toString(),            color: 'text-danger' },
+    { label: 'Total Wallet Volume', value: formatCurrency(totalVolume), color: 'text-teal' },
+    { label: 'Average Balance',     value: formatCurrency(avgBalance),  color: 'text-primary' },
+    { label: 'Active Wallets',      value: activeWallets.toString(),    color: 'text-success' },
+    { label: 'Zero Balance',        value: zeroBalance.toString(),      color: 'text-danger' },
   ];
 
   // ── Table columns ───────────────────────────────────────────────────────────

@@ -133,7 +133,8 @@ export function getStatusColor(status: string): {
   return map[status] ?? { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' };
 }
 
-/** Converts a short category key to its full display name: 'agri' → 'Agriculture'. */
+/** Converts a short category key to its full display name. Platform policy now
+ *  uses Technology only, but older records may still carry legacy keys. */
 export function getCategoryLabel(category: string): string {
   const labels: Record<string, string> = {
     tech: 'Technology',
@@ -144,4 +145,39 @@ export function getCategoryLabel(category: string): string {
     realestate: 'Real Estate',
   };
   return labels[category] ?? category;
+}
+
+/**
+ * Exports an array of rows to a downloadable CSV file (client-side, no backend).
+ *
+ * @param filename  base name; a date + ".csv" suffix is appended automatically
+ * @param columns   ordered list of { key, header, value? } describing each column
+ * @param rows      the data objects to serialise
+ */
+export function exportToCsv<T>(
+  filename: string,
+  columns: { header: string; value: (row: T) => unknown }[],
+  rows: T[],
+): void {
+  const escape = (val: unknown): string => {
+    const s = val === null || val === undefined ? '' : String(val);
+    // Quote any field containing a comma, quote, or newline; double inner quotes.
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const header = columns.map((c) => escape(c.header)).join(',');
+  const body = rows.map((row) => columns.map((c) => escape(c.value(row))).join(',')).join('\n');
+  // Prepend a BOM so Excel renders UTF-8 (e.g. Arabic) correctly.
+  const csv = '﻿' + header + '\n' + body;
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const date = new Date().toISOString().slice(0, 10);
+  link.href = url;
+  link.download = `${filename}-${date}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }

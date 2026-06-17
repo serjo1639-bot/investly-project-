@@ -19,6 +19,7 @@ Both this dashboard and the **myApp** mobile application connect to the same ASP
 9. [Mock Data Mode](#mock-data-mode)
 10. [Design System](#design-system)
 11. [Connecting to the ASP.NET Backend](#connecting-to-the-aspnet-backend)
+12. [Documentation](#documentation)
 
 ---
 
@@ -28,7 +29,7 @@ Both this dashboard and the **myApp** mobile application connect to the same ASP
 |---|---|
 | **Dashboard** | View platform KPIs: total users, revenue, active projects, success rate. 4 interactive charts. |
 | **Users** | List, search, filter, view profile, edit details, suspend (temporary), ban (permanent), delete. |
-| **Projects** | List all projects, approve or reject pending submissions with optional rejection reason. |
+| **Projects** | List all projects, **create new projects** (New Project modal), approve or reject pending submissions with optional rejection reason. |
 | **Pending Review** | Dedicated screen showing only pending projects — quick approve or reject with reason. |
 | **Project Detail** | Full project view — funding progress, owner contact, EN + AR descriptions. Approve/Reject buttons. |
 | **Investments** | Browse all investment transactions with filters and totals. |
@@ -84,7 +85,8 @@ admin-dashboard/
 │   ├── components/
 │   │   ├── layout/                 ← DashboardLayout, Sidebar, Header
 │   │   ├── auth/                   ← ProtectedRoute (redirects to /login if not authenticated)
-│   │   ├── dashboard/              ← StatsCard, RevenueChart, UserGrowthChart, ProjectStatusChart
+│   │   ├── dashboard/              ← StatsCard, RecentActivity, RevenueChart, UserGrowthChart, ProjectStatusChart
+│   │   ├── projects/               ← NewProjectModal (create-project form)
 │   │   └── ui/                     ← Button, Card, Input, Select, Table, Modal, Badge, Avatar
 │   │
 │   ├── contexts/
@@ -103,9 +105,11 @@ admin-dashboard/
 │   │
 │   └── types/index.ts              ← TypeScript interfaces: User, Project, Investment, Payment, Notification…
 │
+├── docs/
+│   ├── README.md                   ← Admin docs index
+│   └── CODEBASE_EXPLAINED.md       ← Deep-dive explanation of every file
 ├── .env.local                      ← API URL (not committed to git — see below)
 ├── README.md                       ← This file
-├── CODEBASE_EXPLAINED.md           ← Deep-dive explanation of every file
 ├── next.config.ts
 └── package.json
 ```
@@ -161,15 +165,19 @@ npm run dev
 `.env.local` (never commit this file):
 
 ```env
-# Backend URL
-NEXT_PUBLIC_API_BASE_URL=http://localhost:5000/api
+# Backend URL — the ASP.NET API runs on port 5231 by default
+NEXT_PUBLIC_API_BASE_URL=http://localhost:5231/api
 
 # Production backend:
 # NEXT_PUBLIC_API_BASE_URL=https://api.investly.ly/api
 
-# Set to "true" to skip the backend and use built-in mock data
+# Set to "true" to route all calls through the built-in mock adapter
 NEXT_PUBLIC_MOCK_MODE=false
 ```
+
+> If `NEXT_PUBLIC_API_BASE_URL` is unset, the code falls back to
+> `http://localhost:5000/api` (`src/lib/api/config.ts`) — always set it
+> explicitly to match your backend (5231).
 
 ---
 
@@ -181,6 +189,10 @@ All HTTP calls go through `src/lib/api/config.ts` — an Axios instance that:
 - Times out after **30 seconds**
 
 ### Endpoint reference
+
+A curated subset is below; the **complete** cross-project reference (every route,
+and which client calls it) lives in
+[`/documentation/api-endpoints.md`](../documentation/api-endpoints.md).
 
 | Action | Method | Endpoint |
 |---|---|---|
@@ -195,6 +207,7 @@ All HTTP calls go through `src/lib/api/config.ts` — an Axios instance that:
 | **Unsuspend user** | POST | `/admin/users/:id/unsuspend` |
 | List projects | GET | `/admin/projects` |
 | Get project | GET | `/projects/:id` |
+| **Create project** | POST | `/projects` |
 | Approve project | POST | `/admin/projects/:id/approve` |
 | Reject project | POST | `/admin/projects/:id/reject` |
 | Platform stats | GET | `/admin/stats` |
@@ -255,7 +268,12 @@ Every subsequent API call
 
 ## Mock Data Mode
 
-Every page imports a `MOCK_*` constant (e.g. `MOCK_USERS`, `MOCK_PROJECTS`). When an API call fails (server offline, network error, or `NEXT_PUBLIC_MOCK_MODE=true`) the page catches the error silently and renders the mock data instead. The UI looks and behaves identically with or without the backend.
+Set `NEXT_PUBLIC_MOCK_MODE=true` to run the dashboard **without a backend**. The
+Axios client (`src/lib/api/config.ts`) then swaps in a **mock adapter**
+(`src/lib/api/mock.ts`) that resolves requests with built-in sample data, so the
+UI looks and behaves identically offline. With mock mode off, pages call the real
+backend and degrade gracefully (empty lists + inline error messages) if it is
+unreachable.
 
 ---
 
@@ -314,5 +332,20 @@ app.UseAuthorization();
 
 **4. Set your server URL in `.env.local`:**
 ```env
-NEXT_PUBLIC_API_BASE_URL=http://localhost:5000/api
+NEXT_PUBLIC_API_BASE_URL=http://localhost:5231/api
 ```
+
+---
+
+## Documentation
+
+| Doc | What's inside |
+|---|---|
+| [`docs/`](docs/README.md) | Admin documentation hub (index) |
+| [`docs/CODEBASE_EXPLAINED.md`](docs/CODEBASE_EXPLAINED.md) | File-by-file deep dive of the whole dashboard |
+| [`/documentation/system-integration.md`](../documentation/system-integration.md) | How the dashboard, mobile app and backend connect |
+| [`/documentation/api-endpoints.md`](../documentation/api-endpoints.md) | Every backend endpoint and which client calls it |
+| [`/documentation/file-reference.md`](../documentation/file-reference.md) | One-line description of every source file (both frontends) |
+
+Install/run guides for the whole project live in
+[`/setup-guide`](../setup-guide/README.md).

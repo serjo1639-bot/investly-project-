@@ -1,3 +1,5 @@
+# Claude Code settings (local only, not needed in repo)
+.claude/
 # ─── Expo / React Native ───────────────────────────────────────────
 .expo/
 .expo-shared/

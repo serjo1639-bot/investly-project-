@@ -61,31 +61,6 @@ const REASON_OPTIONS = [
   { value: 'adjustment', label: 'Adjustment' },
 ];
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
-
-const MOCK_PAYMENTS: Payment[] = Array.from({ length: 60 }, (_, i) => ({
-  id: `pay-${i + 1}`,
-  amount: [500, 1000, 2500, 5000, 10000, 25000][i % 6],
-  currency: 'LYD',
-  method: (['wallet', 'credit_card', 'recharge_card'] as Payment['method'][])[i % 3],
-  status: (['completed', 'completed', 'pending', 'completed', 'failed', 'refunded'] as Payment['status'][])[i % 6],
-  userId: `user-${(i % 10) + 1}`,
-  userName: ['Ahmad Al-Mansouri', 'Fatima Zahra', 'Khaled Hassan', 'Sara Ali', 'Omar Said'][i % 5],
-  transactionId: `TXN-${String(100000 + i)}`,
-  notes: '',
-  approvedBy: i % 6 === 0 ? 'admin-1' : undefined,
-  createdAt: new Date(Date.now() - i * 86400000).toISOString(),
-}));
-
-// ── Mock users list for "Add Funds" dropdown ──────────────────────────────────
-
-const MOCK_USERS_SIMPLE = [
-  { id: 'user-1', name: 'Ahmad Al-Mansouri', email: 'ahmad@example.com' },
-  { id: 'user-2', name: 'Fatima Zahra',      email: 'fatima@example.com' },
-  { id: 'user-3', name: 'Khaled Hassan',     email: 'khaled@example.com' },
-  { id: 'user-4', name: 'Sara Ali',          email: 'sara@example.com' },
-  { id: 'user-5', name: 'Omar Said',         email: 'omar@example.com' },
-];
 
 // ── Date filter helper ────────────────────────────────────────────────────────
 
@@ -99,12 +74,6 @@ const isWithinRange = (dateStr: string | undefined, range: string) => {
   return true;
 };
 
-// ── Computed stats ────────────────────────────────────────────────────────────
-
-const completedTotal  = MOCK_PAYMENTS.filter((p) => p.status === 'completed').reduce((s, p) => s + p.amount, 0);
-const pendingTotal    = MOCK_PAYMENTS.filter((p) => p.status === 'pending').reduce((s, p) => s + p.amount, 0);
-const failedCount     = MOCK_PAYMENTS.filter((p) => p.status === 'failed').length;
-const refundedTotal   = MOCK_PAYMENTS.filter((p) => p.status === 'refunded').reduce((s, p) => s + p.amount, 0);
 
 // ── Page component ────────────────────────────────────────────────────────────
 
@@ -159,17 +128,8 @@ export default function PaymentsPage() {
       setPayments(res.data ?? []);
       setTotal(res.total ?? 0);
     } catch {
-      // API unavailable — filter the local mock data instead
-      let filtered = MOCK_PAYMENTS.filter((p) => {
-        if (search && !p.userName?.toLowerCase().includes(search.toLowerCase()) && !p.transactionId?.toLowerCase().includes(search.toLowerCase())) return false;
-        if (statusFilter && p.status !== statusFilter) return false;
-        if (methodFilter && p.method !== methodFilter) return false;
-        if (!isWithinRange(p.createdAt, dateFilter)) return false;
-        return true;
-      });
-      setTotal(filtered.length);
-      // Slice the array to return only the current page of results
-      setPayments(filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
+      setPayments([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -405,10 +365,10 @@ export default function PaymentsPage() {
         {/* ── Stat cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
           {[
-            { label: 'Total Volume (Completed)', value: formatCurrency(completedTotal), color: 'text-teal' },
-            { label: 'Pending Amount',           value: formatCurrency(pendingTotal),   color: 'text-amber' },
-            { label: 'Failed Count',             value: failedCount.toString(),         color: 'text-danger' },
-            { label: 'Refunded Amount',          value: formatCurrency(refundedTotal),  color: 'text-primary' },
+            { label: 'Total Volume (Completed)', value: formatCurrency(payments.filter((p) => p.status === 'completed').reduce((s, p) => s + p.amount, 0)), color: 'text-teal' },
+            { label: 'Pending Amount',           value: formatCurrency(payments.filter((p) => p.status === 'pending').reduce((s, p) => s + p.amount, 0)),   color: 'text-amber' },
+            { label: 'Failed Count',             value: payments.filter((p) => p.status === 'failed').length.toString(),                                     color: 'text-danger' },
+            { label: 'Refunded Amount',          value: formatCurrency(payments.filter((p) => p.status === 'refunded').reduce((s, p) => s + p.amount, 0)),  color: 'text-primary' },
           ].map((s) => (
             <Card key={s.label} padding="sm">
               <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
@@ -625,10 +585,7 @@ export default function PaymentsPage() {
                 onChange={(e) => setAddFundsUserId(e.target.value)}
                 className="w-full rounded-xl border border-border bg-surface text-text-primary text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary px-3 py-2.5"
               >
-                <option value="">Select a user...</option>
-                {MOCK_USERS_SIMPLE.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                ))}
+                <option value="">Enter user ID manually below...</option>
               </select>
             </div>
             <div>

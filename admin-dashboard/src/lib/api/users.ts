@@ -21,11 +21,20 @@ export interface UsersQueryParams {
 export const usersApi = {
   getAllUsers: async (params?: UsersQueryParams): Promise<PaginatedResponse<User>> => {
     const response = await apiClient.get('/admin/users', { params });
-    const data = response.data;
-    if (Array.isArray(data)) {
-      return { data, total: data.length, page: 1, pageSize: data.length, totalPages: 1 };
+    // Backend: { success, data: [...users] } (plain array, not paged)
+    const envelope = response.data;
+    const items = envelope?.data ?? (Array.isArray(envelope) ? envelope : []);
+    if (Array.isArray(items)) {
+      return { data: items, total: items.length, page: 1, pageSize: items.length, totalPages: 1 };
     }
-    return data?.data ?? data;
+    // Handle paged shape if backend ever returns { items, totalCount, ... }
+    return {
+      data: items?.items ?? [],
+      total: items?.totalCount ?? 0,
+      page: items?.page ?? 1,
+      pageSize: items?.pageSize ?? 20,
+      totalPages: items?.totalPages ?? 1,
+    };
   },
 
   getUserById: async (userId: string): Promise<User> => {
@@ -34,12 +43,12 @@ export const usersApi = {
   },
 
   updateUser: async (userId: string, data: Partial<User>): Promise<User> => {
-    const response = await apiClient.put(`/users/${userId}`, data);
+    const response = await apiClient.put(`/admin/users/${userId}`, data);
     return response.data?.data ?? response.data;
   },
 
   deleteUser: async (userId: string): Promise<void> => {
-    await apiClient.delete(`/users/${userId}`);
+    await apiClient.delete(`/admin/users/${userId}`);
   },
 
   banUser: async (userId: string): Promise<void> => {

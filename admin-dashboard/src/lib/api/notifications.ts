@@ -20,6 +20,12 @@ export const notificationsApi = {
     await apiClient.post('/notifications/read-all');
   },
 
+  // Admin-only: permanently delete a notification for everyone (also removes it
+  // from every user's mobile feed).
+  deleteNotification: async (id: string): Promise<void> => {
+    await apiClient.delete(`/admin/notifications/${id}`);
+  },
+
   getSettings: async () => {
     const response = await apiClient.get('/notifications/settings');
     return response.data?.data ?? response.data;

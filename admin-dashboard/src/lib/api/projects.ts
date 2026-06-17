@@ -12,11 +12,19 @@ export interface ProjectsQueryParams {
 export const projectsApi = {
   getAllProjects: async (params?: ProjectsQueryParams): Promise<PaginatedResponse<Project>> => {
     const response = await apiClient.get('/admin/projects', { params });
-    const data = response.data;
-    if (Array.isArray(data)) {
-      return { data, total: data.length, page: 1, pageSize: data.length, totalPages: 1 };
+    // Backend: { success, data: { items, totalCount, page, pageSize, totalPages } }
+    const envelope = response.data;
+    const pagedData = envelope?.data ?? envelope;
+    if (Array.isArray(pagedData)) {
+      return { data: pagedData, total: pagedData.length, page: 1, pageSize: pagedData.length, totalPages: 1 };
     }
-    return data?.data ?? data;
+    return {
+      data: pagedData?.items ?? [],
+      total: pagedData?.totalCount ?? 0,
+      page: pagedData?.page ?? 1,
+      pageSize: pagedData?.pageSize ?? 20,
+      totalPages: pagedData?.totalPages ?? 1,
+    };
   },
 
   getFeaturedProjects: async (): Promise<Project[]> => {
@@ -40,7 +48,7 @@ export const projectsApi = {
   },
 
   deleteProject: async (projectId: string): Promise<void> => {
-    await apiClient.delete(`/projects/${projectId}`);
+    await apiClient.delete(`/admin/projects/${projectId}`);
   },
 
   approveProject: async (projectId: string): Promise<void> => {

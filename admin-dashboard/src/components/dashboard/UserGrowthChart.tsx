@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   BarChart,
   Bar,
@@ -9,25 +9,10 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Users } from 'lucide-react';
-
-const MOCK_DATA = [
-  { month: 'Jan', investors: 45, owners: 12 },
-  { month: 'Feb', investors: 72, owners: 18 },
-  { month: 'Mar', investors: 58, owners: 15 },
-  { month: 'Apr', investors: 91, owners: 24 },
-  { month: 'May', investors: 84, owners: 20 },
-  { month: 'Jun', investors: 115, owners: 30 },
-  { month: 'Jul', investors: 98, owners: 26 },
-  { month: 'Aug', investors: 130, owners: 35 },
-  { month: 'Sep', investors: 145, owners: 40 },
-  { month: 'Oct', investors: 122, owners: 32 },
-  { month: 'Nov', investors: 160, owners: 45 },
-  { month: 'Dec', investors: 185, owners: 52 },
-];
+import { MonthlyUserPoint } from '@/types';
 
 interface CustomTooltipProps {
   active?: boolean;
@@ -51,7 +36,15 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   );
 }
 
-export function UserGrowthChart() {
+interface UserGrowthChartProps {
+  data: MonthlyUserPoint[];
+  loading?: boolean;
+}
+
+export function UserGrowthChart({ data, loading }: UserGrowthChartProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   return (
     <Card>
       <CardHeader
@@ -72,25 +65,33 @@ export function UserGrowthChart() {
         }
       />
       <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={MOCK_DATA} margin={{ top: 5, right: 5, left: -20, bottom: 0 }} barGap={4}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E4EBFF" vertical={false} />
-            <XAxis
-              dataKey="month"
-              tick={{ fontSize: 11, fill: '#8892AD' }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: '#8892AD' }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#EFF1FF' }} />
-            <Bar dataKey="investors" fill="#4361EE" radius={[4, 4, 0, 0]} maxBarSize={20} />
-            <Bar dataKey="owners" fill="#00B4A0" radius={[4, 4, 0, 0]} maxBarSize={20} />
-          </BarChart>
-        </ResponsiveContainer>
+        {loading && (
+          <div className="h-full flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
+        {!loading && mounted && (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }} barGap={4}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E4EBFF" vertical={false} />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 11, fill: '#8892AD' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: '#8892AD' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: '#EFF1FF' }} />
+              <Bar dataKey="investors" fill="#4361EE" radius={[4, 4, 0, 0]} maxBarSize={20} />
+              <Bar dataKey="owners" fill="#00B4A0" radius={[4, 4, 0, 0]} maxBarSize={20} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+        {!loading && !mounted && <div className="h-full" />}
       </div>
     </Card>
   );

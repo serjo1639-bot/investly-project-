@@ -31,6 +31,7 @@ import {
   X,
   Clock,
   Wallet,
+  Smartphone,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar } from '@/components/ui/Avatar';
@@ -58,6 +59,7 @@ const NAV_ITEMS = [
     section: 'System',
     items: [
       { href: '/notifications', icon: Bell, label: 'Notifications' },
+      { href: '/app-control', icon: Smartphone, label: 'App Control' },
       { href: '/admins', icon: Shield, label: 'Admin Users' },
       { href: '/settings', icon: Settings, label: 'Settings' },
     ],

@@ -1,15 +1,13 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { StatsCard } from '@/components/dashboard/StatsCard';
-import { RevenueChart } from '@/components/dashboard/RevenueChart';
-import { UserGrowthChart } from '@/components/dashboard/UserGrowthChart';
-import { ProjectStatusChart } from '@/components/dashboard/ProjectStatusChart';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { adminApi } from '@/lib/api/admin';
-import { DashboardStats } from '@/types';
+import { ChartData, DashboardStats } from '@/types';
 import {
   Users,
   FolderOpen,
@@ -20,35 +18,40 @@ import {
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
+const RevenueChart = dynamic(
+  () => import('@/components/dashboard/RevenueChart').then(m => m.RevenueChart),
+  { ssr: false }
+);
+const UserGrowthChart = dynamic(
+  () => import('@/components/dashboard/UserGrowthChart').then(m => m.UserGrowthChart),
+  { ssr: false }
+);
+const ProjectStatusChart = dynamic(
+  () => import('@/components/dashboard/ProjectStatusChart').then(m => m.ProjectStatusChart),
+  { ssr: false }
+);
+
 export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats]           = useState<DashboardStats | null>(null);
+  const [chartData, setChartData]   = useState<ChartData | null>(null);
+  const [statsLoading, setStatsLoading]   = useState(true);
+  const [chartsLoading, setChartsLoading] = useState(true);
 
   useEffect(() => {
     adminApi.getStats()
       .then(setStats)
-      .catch(() => {
-        // Use mock data if API not available
-        setStats({
-          totalUsers: 1842,
-          totalProjects: 55,
-          totalInvestments: 3210,
-          totalRevenue: 12500000,
-          activeProjects: 24,
-          pendingProjects: 8,
-          newUsersToday: 14,
-          newUsersThisWeek: 87,
-          totalTransactions: 4820,
-          successRate: 94.5,
-        });
-      })
-      .finally(() => setLoading(false));
+      .catch(() => setStats(null))
+      .finally(() => setStatsLoading(false));
+
+    adminApi.getChartData()
+      .then(setChartData)
+      .catch(() => setChartData(null))
+      .finally(() => setChartsLoading(false));
   }, []);
 
   return (
     <ProtectedRoute>
       <DashboardLayout title="Dashboard">
-        {/* Page header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-text-primary">Dashboard Overview</h1>
           <p className="text-sm text-text-muted mt-1">
@@ -66,7 +69,7 @@ export default function DashboardPage() {
               change={12}
               changeLabel="vs last month"
               color="primary"
-              loading={loading}
+              loading={statsLoading}
             />
           </div>
           <div className="col-span-1">
@@ -77,7 +80,7 @@ export default function DashboardPage() {
               change={8}
               changeLabel="vs last month"
               color="teal"
-              loading={loading}
+              loading={statsLoading}
             />
           </div>
           <div className="col-span-1">
@@ -86,7 +89,7 @@ export default function DashboardPage() {
               value={stats?.activeProjects ?? 0}
               icon={<CheckCircle size={20} />}
               color="success"
-              loading={loading}
+              loading={statsLoading}
             />
           </div>
           <div className="col-span-1">
@@ -97,7 +100,7 @@ export default function DashboardPage() {
               change={23}
               changeLabel="vs last month"
               color="amber"
-              loading={loading}
+              loading={statsLoading}
             />
           </div>
           <div className="col-span-1">
@@ -108,7 +111,7 @@ export default function DashboardPage() {
               change={18}
               changeLabel="vs last month"
               color="primary"
-              loading={loading}
+              loading={statsLoading}
             />
           </div>
           <div className="col-span-1">
@@ -118,7 +121,7 @@ export default function DashboardPage() {
               icon={<Activity size={20} />}
               suffix="%"
               color="teal"
-              loading={loading}
+              loading={statsLoading}
             />
           </div>
         </div>
@@ -126,17 +129,26 @@ export default function DashboardPage() {
         {/* Charts Row 1 */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-4">
           <div className="xl:col-span-2">
-            <RevenueChart />
+            <RevenueChart
+              data={chartData?.revenue ?? []}
+              loading={chartsLoading}
+            />
           </div>
           <div className="xl:col-span-1">
-            <ProjectStatusChart />
+            <ProjectStatusChart
+              data={chartData?.projectStatus}
+              loading={chartsLoading}
+            />
           </div>
         </div>
 
         {/* Charts Row 2 */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
           <div className="xl:col-span-1">
-            <UserGrowthChart />
+            <UserGrowthChart
+              data={chartData?.userGrowth ?? []}
+              loading={chartsLoading}
+            />
           </div>
           <div className="xl:col-span-2">
             <RecentActivity />

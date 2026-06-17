@@ -1,0 +1,140 @@
+================================================================
+  INVESTLY — HOW TO RUN THE FULL PROJECT
+  (Backend + Mobile App + Admin Dashboard)
+================================================================
+
+The project has 3 parts that work together:
+
+  1. Backend       (ASP.NET / .NET 8 + PostgreSQL)  → the API server
+  2. Mobile App    (React Native / Expo)            → investor & manager app
+  3. Admin Dashboard (Next.js)                       → the web admin panel
+
+ALWAYS START THE BACKEND FIRST.
+
+For detailed, step-by-step guides see the /setup-guide folder.
+For how the code is built, see the /documentation folder.
+
+
+================================================================
+  REQUIREMENTS — INSTALL THESE FIRST
+================================================================
+
+  - .NET 8 SDK        → https://dotnet.microsoft.com/download
+  - PostgreSQL 14+    → https://www.postgresql.org/download
+  - Node.js 18+       → https://nodejs.org
+  - Git               → https://git-scm.com
+  - Expo Go (phone)   → App Store / Google Play  (to run on a real device)
+  - Visual Studio 2022 or VS Code  → for the backend (or use the dotnet CLI)
+
+
+================================================================
+  STEP 1 — DATABASE (PostgreSQL)
+================================================================
+
+  1. Make sure PostgreSQL is running.
+  2. Create the database:
+         CREATE DATABASE "InvestlyDB";
+  3. The connection string lives in:
+         investly_backendproject/appsettings.json
+     Default:
+         Host=localhost;Port=5432;Database=InvestlyDB;Username=postgres;Password=123456
+     Edit it if your Postgres username/password differ.
+
+  (SQL files for reference live in the /database folder.)
+
+
+================================================================
+  STEP 2 — BACKEND (ASP.NET, port 5231)
+================================================================
+
+  cd investly_backendproject
+  dotnet restore
+  dotnet ef database update     (creates the tables)
+  dotnet run                    (→ http://localhost:5231)
+
+  To allow a physical phone to connect over Wi-Fi:
+  dotnet run --urls "http://0.0.0.0:5231"
+
+  Test it:  curl http://localhost:5231/api/projects/featured
+  You should get JSON like { "success": true, "data": [...] }.
+
+
+================================================================
+  STEP 3 — MOBILE APP (React Native / Expo)
+================================================================
+
+  cd myApp
+  npm install
+  npx expo start
+
+  Then:
+    - press 'a'              → Android emulator
+    - press 'i'              → iOS simulator (macOS)
+    - scan the QR code       → physical phone (Expo Go)
+
+  API URL (set in myApp/app.json → expo.extra.apiBaseUrl):
+    - Android emulator   : http://10.0.2.2:5231/api   (default, already set up)
+    - iOS simulator      : http://localhost:5231/api
+    - Physical phone     : http://<YOUR-PC-LAN-IP>:5231/api  (same Wi-Fi!)
+
+  Find your PC IP on Windows with:  ipconfig  (look for IPv4 Address)
+
+
+================================================================
+  STEP 4 — ADMIN DASHBOARD (Next.js)
+================================================================
+
+  cd admin-dashboard
+  npm install
+  npm run dev                   (→ http://localhost:3000)
+
+  The dashboard already points at the backend (admin-dashboard/.env.local →
+  NEXT_PUBLIC_API_BASE_URL=http://localhost:5231/api). Open the URL above and
+  sign in with the ADMIN account below.
+
+
+================================================================
+  TEST ACCOUNTS (created by database/seed.sql)
+================================================================
+
+  These work as soon as the database is seeded (real passwords, ready to use):
+
+    ROLE        EMAIL                 PASSWORD     USE
+    ----------  --------------------  -----------  ----------------------------
+    Admin       admin@investly.ly     Admin@123    Admin Dashboard (web)
+    Investor    ahmed@test.ly         Test@123     Mobile app
+    Investor    sara@test.ly          Test@123     Mobile app (suspended demo)
+    Investor    omar@test.ly          Test@123     Mobile app (pending-KYC demo)
+    Owner       fatima@test.ly        Test@123     Mobile app (Project Manager)
+
+  NOTE: the mobile app does NOT ask for a role at login — just email + password.
+  The Admin account is for the dashboard only (admins don't use the mobile app).
+
+
+================================================================
+  FIRST SIGN-IN
+================================================================
+
+  Admin Dashboard (web):
+    Open http://localhost:3000 → sign in with  admin@investly.ly / Admin@123
+
+  Mobile app:
+    Sign in with a test account above — e.g.
+      fatima@test.ly / Test@123   → Project Manager view (Dashboard)
+      ahmed@test.ly  / Test@123   → Investor view (Home/Projects/Wallet)
+    OR tap "Create account" to register a new Investor / Project Manager
+    (name, email, phone, age, gender, location, password — min 8 characters).
+
+
+================================================================
+  TROUBLESHOOTING (most common)
+================================================================
+
+  • "Cannot reach the server"  → wrong API URL for where the app runs, or the
+                                  backend isn't running / firewall blocks 5231.
+  • npm install ERESOLVE errors → run:  npx expo install --fix
+  • "Cannot find module 'babel-preset-expo'" → npx expo install babel-preset-expo
+  • Stale bundle / odd errors  → npx expo start -c
+
+  More fixes: /setup-guide/troubleshooting.md
+================================================================

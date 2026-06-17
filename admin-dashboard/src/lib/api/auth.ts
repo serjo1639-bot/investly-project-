@@ -8,7 +8,8 @@ export const authApi = {
       password,
       role: 'admin',
     });
-    return response.data;
+    // Backend: { success, message, data: { token, refreshToken, user } }
+    return response.data?.data ?? response.data;
   },
 
   login: async (phone: string, password: string): Promise<AuthSession> => {
@@ -17,7 +18,7 @@ export const authApi = {
       password,
       role: 'admin',
     });
-    return response.data;
+    return response.data?.data ?? response.data;
   },
 
   getProfile: async (): Promise<User> => {
@@ -32,11 +33,12 @@ export const authApi = {
 
   refreshToken: async (refreshToken: string): Promise<{ token: string; refreshToken: string }> => {
     const response = await apiClient.post('/auth/refresh-token', { refreshToken });
-    return response.data;
+    return response.data?.data ?? response.data;
   },
 
-  logout: async (): Promise<void> => {
-    await apiClient.post('/auth/logout');
+  logout: async (refreshToken?: string): Promise<void> => {
+    // Backend requires refreshToken in body to revoke the token server-side
+    await apiClient.post('/auth/logout', { refreshToken: refreshToken ?? '' });
   },
 
   changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {

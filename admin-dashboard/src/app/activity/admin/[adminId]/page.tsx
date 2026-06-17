@@ -7,7 +7,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
 import { adminApi } from '@/lib/api/admin';
-import { MOCK_ACTIVITY_LOGS, ActivityLog } from '@/app/activity/page';
+import { ActivityLog } from '@/app/activity/page';
 import { getRelativeTime, formatDateTime } from '@/lib/utils';
 import {
   ArrowLeft,
@@ -99,9 +99,7 @@ export default function AdminActivityPage() {
         const data = await adminApi.getActivityLogs({ adminId } as { page?: number; pageSize?: number; adminId?: string });
         setLogs(Array.isArray(data) ? data : []);
       } catch {
-        // Filter the shared mock data by adminId
-        const mockFiltered = MOCK_ACTIVITY_LOGS.filter((l) => l.adminId === adminId);
-        setLogs(mockFiltered);
+        setLogs([]);
       } finally {
         setLoading(false);
       }

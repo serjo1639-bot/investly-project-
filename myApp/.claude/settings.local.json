@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node \"C:/Users/seraj/.claude/statusline.js\")",
+      "PowerShell(Set-Content *)",
+      "Bash(node --check \"C:/Users/seraj/.claude/statusline.js\")",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\الصور\\\\investly_photo\" -ErrorAction SilentlyContinue | Select-Object Name, Length; \"----- الصور root -----\"; Get-ChildItem \"C:\\\\Users\\\\seraj\\\\OneDrive\\\\الصور\" -File -ErrorAction SilentlyContinue | Select-Object Name, Length)",
+      "mcp__ide__getDiagnostics",
+      "Bash(ls documentation *)",
+      "Bash(ls setup-guide *)",
+      "Bash(ls *.txt *.md)",
+      "Bash(ls myApp/*.md)",
+      "Bash(ls admin-dashboard/*.md)"
+    ]
+  }
+}
