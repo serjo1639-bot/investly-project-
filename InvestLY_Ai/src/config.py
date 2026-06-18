@@ -18,8 +18,7 @@ MODELS_DIR      = ROOT_DIR / "models"
 MODEL_SAVE_PATH = MODELS_DIR / "summarizer_model"
 
 # ── HuggingFace model identifier ────────────────────────────────
-HF_MODEL_NAME = "UBC-NLP/AraT5v2-base-1024"
-
+HF_MODEL_NAME = r"D:\Programming Projects\Pycharm-Projects\Investly_Ai\models\AraT5v2-base-1024"
 # ── Training hyper-parameters ───────────────────────────────────
 MAX_INPUT_TOKENS  = 512     # model supports up to 1024
 MAX_TARGET_TOKENS = 128

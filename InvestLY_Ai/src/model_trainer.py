@@ -15,8 +15,6 @@ Improvements over v1:
 
 import sys
 import os
-os.environ["HF_HUB_OFFLINE"] = "1"
-os.environ["TRANSFORMERS_OFFLINE"] = "1"
 import shutil
 sys.stdout.reconfigure(encoding="utf-8")
 import numpy as np
@@ -198,16 +196,53 @@ def train_model():
     os.makedirs(save_path, exist_ok=True)
 
     # ── Load tokenizer & model ──────────────────────────────
-    print(f"\n📥 تحميل النموذج: {HF_MODEL_NAME}")
-    tokenizer = AutoTokenizer.from_pretrained(HF_MODEL_NAME, legacy=False)
-    model     = AutoModelForSeq2SeqLM.from_pretrained(HF_MODEL_NAME)
+    from pathlib import Path
+
+    LOCAL_MODEL_PATH = Path(__file__).parent / "models" / "AraT5v2-base-1024"
+
+    print(f"\n📥 تحميل النموذج...")
+
+    if (LOCAL_MODEL_PATH / "config.json").exists():
+        print("📂 تم العثور على النموذج المحلي")
+
+        tokenizer = AutoTokenizer.from_pretrained(
+            str(LOCAL_MODEL_PATH),
+            legacy=False
+        )
+
+        model = AutoModelForSeq2SeqLM.from_pretrained(
+            str(LOCAL_MODEL_PATH)
+        )
+
+    else:
+        print("🌐 النموذج غير موجود، جاري التنزيل من Hugging Face...")
+
+        tokenizer = AutoTokenizer.from_pretrained(
+            HF_MODEL_NAME,
+            legacy=False
+        )
+
+        model = AutoModelForSeq2SeqLM.from_pretrained(
+            HF_MODEL_NAME
+        )
+
+        LOCAL_MODEL_PATH.mkdir(parents=True, exist_ok=True)
+
+        model.save_pretrained(str(LOCAL_MODEL_PATH))
+        tokenizer.save_pretrained(str(LOCAL_MODEL_PATH))
+
+        print(f"✅ تم حفظ النموذج في: {LOCAL_MODEL_PATH}")
+
+
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
-    model.to(device)
-    model.gradient_checkpointing_enable()
-    model.config.use_cache = False  # Disable KV caching during training to support gradient checkpointing
-    print(f"   Parameters: {sum(p.numel() for p in model.parameters()) / 1e6:.1f} M")
 
+    model.to(device)
+    torch.set_float32_matmul_precision("high")
+    model.gradient_checkpointing_enable()
+    model.config.use_cache = False
+
+    print(f"   Parameters: {sum(p.numel() for p in model.parameters()) / 1e6:.1f} M")
     # ── Load data ───────────────────────────────────────────
     if not os.path.exists(data_path):
         raise FileNotFoundError(
@@ -258,15 +293,15 @@ def train_model():
         # Generation (needed for compute_metrics with predict_with_generate)
         predict_with_generate=True,
         generation_max_length=MAX_TARGET_TOKENS,
-
+        generation_num_beams=4,
         # Logging
         logging_steps=20,
         logging_dir=os.path.join(save_path, "logs"),
         report_to="none",
 
         # Misc
-        dataloader_num_workers=0,
-        save_total_limit=1,             # keep only 2 checkpoints
+        dataloader_num_workers=4,
+        save_total_limit=4,             # keep only 2 checkpoints
     )
 
     callbacks = [EarlyStoppingCallback(early_stopping_patience=2)]
@@ -282,16 +317,34 @@ def train_model():
     )
 
     print("\n🚀 بدء التدريب...")
-    trainer.train()
+    last_checkpoint = None
+
+    if os.path.isdir(save_path):
+        checkpoints = [
+            os.path.join(save_path, d)
+            for d in os.listdir(save_path)
+            if d.startswith("checkpoint-")
+        ]
+
+        if checkpoints:
+            last_checkpoint = max(checkpoints, key=os.path.getmtime)
+
+    trainer.train(resume_from_checkpoint=last_checkpoint)
 
     # ── Save final model ────────────────────────────────────
     print("\n💾 حفظ النموذج النهائي...")
     model.config.use_cache = True  # Re-enable KV caching before saving so default config enables fast inference
     model.save_pretrained(save_path)
     tokenizer.save_pretrained(save_path)
-    _clean_old_checkpoints(save_path)
+
 
     print("\n✅ اكتمل التدريب بنجاح!")
+    pd.DataFrame(
+        trainer.state.log_history
+    ).to_csv(
+        os.path.join(save_path, "training_history.csv"),
+        index=False
+    )
     if _HAS_ROUGE:
         print("   راجع درجات ROUGE أعلاه لتقييم جودة النموذج.")
 
