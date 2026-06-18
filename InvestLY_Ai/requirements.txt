@@ -1,0 +1,35 @@
+# =========================
+# Core AI
+# =========================
+
+transformers==4.40.0
+datasets==2.18.0
+accelerate==0.28.0
+
+# Arabic NLP
+sentencepiece==0.2.0
+protobuf>=3.20,<5
+
+# Data Processing
+pandas==2.2.2
+numpy==1.26.4
+
+# Evaluation
+evaluate==0.4.1
+rouge-score==0.1.2
+nltk==3.8.1
+
+# Machine Learning Utilities
+scikit-learn==1.4.2
+
+# HuggingFace
+safetensors>=0.4.2
+huggingface-hub>=0.22.2
+
+# Utilities
+packaging==24.0
+tqdm>=4.66.2
+
+# GUI
+customtkinter>=5.2.2
+Pillow>=10.3.0

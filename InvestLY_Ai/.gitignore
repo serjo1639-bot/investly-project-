@@ -1,0 +1,61 @@
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment Variables
+.env
+.env.*
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Models
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.h5
+*.keras
+*.pb
+
+# Training Outputs
+runs/
+outputs/
+checkpoints/
+wandb/
+mlruns/
+
+# Dataset Files (اختياري حسب حجمها)
+data/
+datasets/
+
+# Cache
+.cache/
+.pytest_cache/
+
+# Streamlit
+.streamlit/secrets.toml
