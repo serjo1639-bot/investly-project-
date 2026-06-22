@@ -252,7 +252,10 @@ public class UserService : IUserService
             WebsiteUrl = request.WebsiteUrl,
             ExperienceYears = request.ExperienceYears,
             City = request.City,
-            IsVerified = profile.IsVerified
+            IsVerified = profile.IsVerified,
+            IsBlocked = profile.IsBlocked,
+            DeletedProjectsCount = profile.DeletedProjectsCount,
+            EntrepreneurBlockedCount = profile.EntrepreneurBlockedCount
         };
     }
 
@@ -283,7 +286,11 @@ public class UserService : IUserService
             UserId = profile.UserId,
             CompanyName = profile.CompanyName ?? "",
             Bio = profile.Bio ?? "",
-            IsVerified = profile.IsVerified
+            IsVerified = profile.IsVerified,
+            IsBlocked = profile.IsBlocked,
+            DeletedProjectsCount = profile.DeletedProjectsCount,
+            EntrepreneurBlockedCount = profile.EntrepreneurBlockedCount
         };
     }
+
 }

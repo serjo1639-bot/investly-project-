@@ -13,20 +13,7 @@ import {
 import { Card, CardHeader } from '@/components/ui/Card';
 import { TrendingUp } from 'lucide-react';
 
-const MOCK_DATA = [
-  { month: 'Jan', revenue: 420000, investments: 280000 },
-  { month: 'Feb', revenue: 580000, investments: 390000 },
-  { month: 'Mar', revenue: 510000, investments: 340000 },
-  { month: 'Apr', revenue: 720000, investments: 480000 },
-  { month: 'May', revenue: 650000, investments: 430000 },
-  { month: 'Jun', revenue: 890000, investments: 590000 },
-  { month: 'Jul', revenue: 760000, investments: 510000 },
-  { month: 'Aug', revenue: 920000, investments: 620000 },
-  { month: 'Sep', revenue: 1050000, investments: 700000 },
-  { month: 'Oct', revenue: 980000, investments: 660000 },
-  { month: 'Nov', revenue: 1150000, investments: 780000 },
-  { month: 'Dec', revenue: 1300000, investments: 870000 },
-];
+const LIVE_DATA: Array<{ month: string; revenue: number; investments: number }> = [];
 
 interface CustomTooltipProps {
   active?: boolean;
@@ -72,9 +59,14 @@ export function RevenueChart() {
           </div>
         }
       />
+      {LIVE_DATA.length === 0 ? (
+        <div className="h-64 flex items-center justify-center text-sm text-text-muted">
+          No live monthly revenue data available yet.
+        </div>
+      ) : (
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={MOCK_DATA} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+          <AreaChart data={LIVE_DATA} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#4361EE" stopOpacity={0.15} />
@@ -118,6 +110,7 @@ export function RevenueChart() {
           </AreaChart>
         </ResponsiveContainer>
       </div>
+      )}
     </Card>
   );
 }

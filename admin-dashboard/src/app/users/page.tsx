@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -16,11 +16,11 @@ import { ConfirmDialog } from '@/components/ui/Modal';
 import { usersApi } from '@/lib/api/users';
 import { User } from '@/types';
 import { formatDate, formatCurrency, extractError } from '@/lib/utils';
-import { UserPlus, Ban, Trash2, Eye, RefreshCw, UserX, AlertTriangle } from 'lucide-react';
+import { Ban, Trash2, Eye, RefreshCw, UserX, AlertTriangle } from 'lucide-react';
 
 const PAGE_SIZE = 15;
 
-// ── Filter options ────────────────────────────────────────────────────────────
+// â”€â”€ Filter options â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const ROLE_OPTIONS = [
   { value: '', label: 'All Roles' },
@@ -32,25 +32,12 @@ const ROLE_OPTIONS = [
 const STATUS_OPTIONS = [
   { value: '', label: 'All Status' },
   { value: 'active', label: 'Active' },
-  { value: 'suspended', label: 'Suspended' },
-  { value: 'banned', label: 'Banned' },
+  { value: 'suspended', label: 'Blocked' },
 ];
 
-// ── Mock fallback data used when the backend is offline ───────────────────────
+// â”€â”€ Users are loaded from the backend only â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-const MOCK_USERS: User[] = Array.from({ length: 30 }, (_, i) => ({
-  id: `user-${i + 1}`,
-  name: ['Ahmad Al-Mansouri', 'Fatima Zahra', 'Mahmoud Ibrahim', 'Sara Ali', 'Khaled Hassan', 'Omar Said'][i % 6],
-  email: `user${i + 1}@example.com`,
-  phone: `+218 91 ${String(1000000 + i).slice(1)}`,
-  role: (['investor', 'investor', 'owner', 'investor', 'admin'] as User['role'][])[i % 5],
-  type: i % 3 === 0 ? 'organization' : 'individual',
-  status: (['active', 'active', 'active', 'suspended', 'banned'] as Array<'active' | 'suspended' | 'banned'>)[i % 5],
-  walletBalance: Math.floor(Math.random() * 50000),
-  createdAt: new Date(Date.now() - i * 3 * 86400000).toISOString(),
-}));
-
-// ── Page component ────────────────────────────────────────────────────────────
+// â”€â”€ Page component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function UsersPage() {
   const router = useRouter();
@@ -73,7 +60,8 @@ export default function UsersPage() {
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Fetch users from the API; fall back to filtered mock data on error
+  // Fetch users from the real API. Do not fall back to fake rows in real mode,
+  // because fake data hides backend/auth/CORS problems.
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -87,15 +75,10 @@ export default function UsersPage() {
       });
       setUsers(res.data ?? []);
       setTotal(res.total ?? 0);
-    } catch {
-      const filtered = MOCK_USERS.filter((u) => {
-        if (search && !u.name.toLowerCase().includes(search.toLowerCase()) && !u.email.toLowerCase().includes(search.toLowerCase())) return false;
-        if (roleFilter && u.role !== roleFilter) return false;
-        if (statusFilter && u.status !== statusFilter) return false;
-        return true;
-      });
-      setTotal(filtered.length);
-      setUsers(filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
+    } catch (err) {
+      setUsers([]);
+      setTotal(0);
+      setError(extractError(err));
     } finally {
       setLoading(false);
     }
@@ -107,14 +90,14 @@ export default function UsersPage() {
     return () => clearTimeout(timer);
   }, [fetchUsers, search]);
 
-  // ── Action handlers ───────────────────────────────────────────────────────
+  // â”€â”€ Action handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const handleSuspend = async () => {
     if (!suspendTarget) return;
     setActionLoading(true);
-    const isSuspended = suspendTarget.status === 'suspended';
+    const isBlocked = suspendTarget.isBlocked === true;
     try {
-      if (isSuspended) {
+      if (isBlocked) {
         await usersApi.unsuspendUser(suspendTarget.id);
       } else {
         await usersApi.suspendUser(suspendTarget.id, suspendReason || undefined);
@@ -123,7 +106,7 @@ export default function UsersPage() {
       setUsers((prev) =>
         prev.map((u) =>
           u.id === suspendTarget.id
-            ? { ...u, status: isSuspended ? 'active' : 'suspended' }
+            ? { ...u, isBlocked: !isBlocked }
             : u
         )
       );
@@ -164,7 +147,7 @@ export default function UsersPage() {
     }
   };
 
-  // ── Table columns ─────────────────────────────────────────────────────────
+  // â”€â”€ Table columns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const columns = [
     {
@@ -172,9 +155,9 @@ export default function UsersPage() {
       header: 'User',
       render: (user: User) => (
         <div className="flex items-center gap-3">
-          <Avatar name={user.name} size="sm" />
+          <Avatar name={`${user.firstName} ${user.lastName}`} size="sm" />
           <div>
-            <p className="font-medium text-text-primary text-sm">{user.name}</p>
+            <p className="font-medium text-text-primary text-sm">{user.firstName} {user.lastName}</p>
             <p className="text-xs text-text-muted">{user.email}</p>
           </div>
         </div>
@@ -195,7 +178,7 @@ export default function UsersPage() {
     {
       key: 'status',
       header: 'Status',
-      render: (user: User) => <StatusBadge status={user.status ?? 'active'} />,
+      render: (user: User) => <StatusBadge status={user.isBlocked ? 'suspended' : (user.isActive ? 'active' : 'pending')} />,
     },
     {
       key: 'walletBalance',
@@ -229,11 +212,11 @@ export default function UsersPage() {
           <button
             onClick={() => { setSuspendReason(''); setSuspendTarget(user); }}
             className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${
-              user.status === 'suspended'
+              user.isBlocked
                 ? 'text-text-muted hover:text-primary hover:bg-primary-light'
                 : 'text-text-muted hover:text-amber hover:bg-amber-light'
             }`}
-            title={user.status === 'suspended' ? 'Unsuspend user' : 'Suspend user'}
+            title={user.isBlocked ? 'Unblock user' : 'Block user'}
           >
             <UserX size={14} />
           </button>
@@ -256,7 +239,7 @@ export default function UsersPage() {
     },
   ];
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   return (
     <ProtectedRoute>
@@ -267,7 +250,6 @@ export default function UsersPage() {
             <h1 className="text-2xl font-bold text-text-primary">User Management</h1>
             <p className="text-sm text-text-muted mt-1">{total.toLocaleString()} registered users</p>
           </div>
-          <Button icon={<UserPlus size={16} />}>Add User</Button>
         </div>
 
         {error && (
@@ -319,11 +301,11 @@ export default function UsersPage() {
           />
         </Card>
 
-        {/* ── Suspend / Unsuspend modal ─────────────────────────────────────── */}
+        {/* â”€â”€ Suspend / Unsuspend modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <Modal
           isOpen={!!suspendTarget}
           onClose={() => { setSuspendTarget(null); setSuspendReason(''); }}
-          title={suspendTarget?.status === 'suspended' ? 'Unsuspend User' : 'Suspend User'}
+          title={suspendTarget?.isBlocked ? 'Unblock User' : 'Block User'}
           size="sm"
           footer={
             <div className="flex justify-end gap-3">
@@ -341,9 +323,9 @@ export default function UsersPage() {
                 <UserX size={14} />
                 {actionLoading
                   ? 'Processing...'
-                  : suspendTarget?.status === 'suspended'
-                  ? 'Confirm Unsuspend'
-                  : 'Confirm Suspend'}
+                  : suspendTarget?.isBlocked
+                  ? 'Confirm Unblock'
+                  : 'Confirm Block'}
               </button>
             </div>
           }
@@ -352,13 +334,13 @@ export default function UsersPage() {
             <div className="flex items-start gap-3 p-3 bg-amber-light rounded-xl border border-amber/20">
               <AlertTriangle size={18} className="text-amber flex-shrink-0 mt-0.5" />
               <p className="text-sm text-text-secondary">
-                {suspendTarget?.status === 'suspended'
-                  ? `Unsuspending ${suspendTarget?.name} will restore their platform access.`
-                  : `Suspending ${suspendTarget?.name} will temporarily block their access. You can unsuspend them later.`}
+                {suspendTarget?.isBlocked
+                  ? `Unblocking ${suspendTarget?.firstName} will restore their platform access.`
+                  : `Blocking ${suspendTarget?.firstName} will temporarily block their access. You can unblock them later.`}
               </p>
             </div>
             {/* Reason field only appears when suspending, not unsuspending */}
-            {suspendTarget?.status !== 'suspended' && (
+            {suspendTarget && !suspendTarget.isBlocked && (
               <div>
                 <label className="block text-sm font-medium text-text-primary mb-1.5">
                   Reason <span className="text-text-muted font-normal">(optional)</span>
@@ -375,24 +357,24 @@ export default function UsersPage() {
           </div>
         </Modal>
 
-        {/* ── Ban confirmation ──────────────────────────────────────────────── */}
+        {/* â”€â”€ Ban confirmation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <ConfirmDialog
           isOpen={!!banTarget}
           onClose={() => setBanTarget(null)}
           onConfirm={handleBan}
           title="Ban User"
-          message={`Are you sure you want to permanently ban ${banTarget?.name}? They will lose all access to the platform.`}
+          message={`Are you sure you want to permanently ban ${banTarget?.firstName}? They will lose all access to the platform.`}
           confirmLabel="Ban User"
           loading={actionLoading}
         />
 
-        {/* ── Delete confirmation ───────────────────────────────────────────── */}
+        {/* â”€â”€ Delete confirmation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <ConfirmDialog
           isOpen={!!deleteTarget}
           onClose={() => setDeleteTarget(null)}
           onConfirm={handleDelete}
           title="Delete User"
-          message={`Permanently delete ${deleteTarget?.name}? This action cannot be undone.`}
+          message={`Permanently delete ${deleteTarget?.firstName}? This action cannot be undone.`}
           confirmLabel="Delete Permanently"
           loading={actionLoading}
         />
@@ -400,3 +382,4 @@ export default function UsersPage() {
     </ProtectedRoute>
   );
 }
+

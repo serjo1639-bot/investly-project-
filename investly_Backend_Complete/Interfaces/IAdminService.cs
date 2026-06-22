@@ -12,4 +12,6 @@ public interface IAdminService
     Task<bool> ApproveKycAsync(int profileId);
     Task<bool> RejectKycAsync(int profileId, string reason);
     Task<PaginatedResult<ProjectDto>> GetAllProjectsAsync(int page, int pageSize, string? status, string? search);
+    Task<PaginatedResult<BlockedEntrepreneurDto>> GetBlockedEntrepreneursAsync(int page, int pageSize);
+    Task<bool> UnblockEntrepreneurAsync(int profileId);
 }

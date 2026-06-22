@@ -1,54 +1,98 @@
 // ============================================================
-// EMAIL SERVICE - Sends emails via SMTP
+// EMAIL SERVICE - Sends emails through Resend
 // ============================================================
-// Uses SMTP (Simple Mail Transfer Protocol) to send emails.
+// Uses the Resend Email API to send emails.
 // Configured in appsettings.json under the "Email" section.
 //
-// NOTE: This service is registered but NOT currently wired to
-// any business logic. To enable email sending:
-// 1. Update SMTP credentials in appsettings.json
-// 2. Inject IEmailService into the service that needs it
-// 3. Call SendEmailAsync() when events occur
+// Email is separate from the in-app Notifications table:
+// - Notifications: stored in DB and shown inside the app/dashboard.
+// - Email: sent through Resend to the user's email inbox.
+//
+// This does NOT require Firebase. Firebase is only for mobile push
+// notifications, not email.
+//
+// Current use:
+// - AdminController exposes POST /api/admin/email/test to verify Resend settings.
+//
+// To send automatic emails later:
+// 1. Inject IEmailService into the service that owns the business event.
+// 2. Call SendEmailAsync() after the database change succeeds.
+// 3. Keep the Resend API key in appsettings.Development.json, user secrets,
+//    or environment variables instead of committing real secrets.
 // ============================================================
 
-using System.Net;
-using System.Net.Mail;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 using Investly_Backend.Interfaces;
 namespace Investly_Backend.Services;
 
 public class EmailService : IEmailService
 {
     private readonly IConfiguration _config;
+    private readonly ILogger<EmailService> _logger;
+    private readonly HttpClient _httpClient;
 
-    public EmailService(IConfiguration config)
+    public EmailService(IConfiguration config, ILogger<EmailService> logger, HttpClient httpClient)
     {
         _config = config;
+        _logger = logger;
+        _httpClient = httpClient;
     }
 
     public async Task SendEmailAsync(string to, string subject, string body, bool isHtml = false)
     {
-        // Read SMTP settings from appsettings.json
-        var smtpHost = _config["Email:SmtpHost"];
-        var smtpPort = int.Parse(_config["Email:SmtpPort"] ?? "587");
-        var smtpUser = _config["Email:SmtpUser"];
-        var smtpPassword = _config["Email:SmtpPassword"];
+        // Read Resend settings from configuration. appsettings.json contains
+        // placeholders; real values should come from appsettings.Development.json,
+        // user secrets, or environment variables.
+        var apiKey = _config["Email:ResendApiKey"];
         var fromEmail = _config["Email:FromEmail"];
+        var fromName = _config["Email:FromName"] ?? "Investly";
+        var apiUrl = _config["Email:ResendApiUrl"] ?? "https://api.resend.com/emails";
 
-        // SmtpClient handles the actual TCP connection to the mail server
-        using var client = new SmtpClient(smtpHost, smtpPort)
+        if (string.IsNullOrWhiteSpace(apiKey) ||
+            string.IsNullOrWhiteSpace(fromEmail) ||
+            apiKey.Contains("your-resend", StringComparison.OrdinalIgnoreCase) ||
+            fromEmail.Contains("your-domain", StringComparison.OrdinalIgnoreCase))
         {
-            Credentials = new NetworkCredential(smtpUser, smtpPassword),
-            EnableSsl = true  // Gmail requires SSL
+            _logger.LogError("Resend email settings are missing or still contain placeholders.");
+            throw new InvalidOperationException("Resend email settings are not configured. Update Email:ResendApiKey and Email:FromEmail in appsettings.Development.json, user secrets, or environment variables.");
+        }
+
+        // Resend expects a JSON payload:
+        // from: "Name <sender@domain.com>"
+        // to: an array of recipient email addresses
+        // subject: email subject
+        // html/text: message body
+        var payload = new Dictionary<string, object?>
+        {
+            ["from"] = $"{fromName} <{fromEmail}>",
+            ["to"] = new[] { to },
+            ["subject"] = subject,
+            [isHtml ? "html" : "text"] = body
         };
 
-        // MailMessage represents a single email
-        var message = new MailMessage();
-        message.From = new MailAddress(fromEmail ?? "", "Investly");
-        message.To.Add(to);
-        message.Subject = subject;
-        message.Body = body;
-        message.IsBodyHtml = isHtml;
+        using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
-        await client.SendMailAsync(message);
+        try
+        {
+            using var response = await _httpClient.SendAsync(request);
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("Resend email failed with status {StatusCode}: {Body}", response.StatusCode, responseBody);
+                throw new InvalidOperationException($"Resend email failed with status {(int)response.StatusCode}.");
+            }
+
+            _logger.LogInformation("Resend email accepted for {Email}", to);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send email through Resend to {Email}", to);
+            throw;
+        }
     }
 }

@@ -19,7 +19,6 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const SESSION_KEYS = {
   token: 'admin_token',
-  refreshToken: 'admin_refresh_token',
   user: 'admin_user',
 };
 
@@ -47,12 +46,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback((session: AuthSession) => {
-    const { token: newToken, refreshToken, user: newUser } = session;
+    const { token: newToken, user: newUser } = session;
     setToken(newToken);
     setUser(newUser);
     setAuthToken(newToken);
     localStorage.setItem(SESSION_KEYS.token, newToken);
-    localStorage.setItem(SESSION_KEYS.refreshToken, refreshToken);
     localStorage.setItem(SESSION_KEYS.user, JSON.stringify(newUser));
   }, []);
 
@@ -66,7 +64,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setAuthToken(null);
     localStorage.removeItem(SESSION_KEYS.token);
-    localStorage.removeItem(SESSION_KEYS.refreshToken);
     localStorage.removeItem(SESSION_KEYS.user);
   }, []);
 

@@ -29,14 +29,6 @@ interface ProjectStatusChartProps {
   data?: StatusData[];
 }
 
-const DEFAULT_DATA: StatusData[] = [
-  { name: 'Active', value: 24, color: COLORS.active },
-  { name: 'Pending', value: 8, color: COLORS.pending },
-  { name: 'Completed', value: 15, color: COLORS.completed },
-  { name: 'Inactive', value: 5, color: COLORS.inactive },
-  { name: 'Rejected', value: 3, color: COLORS.rejected },
-];
-
 interface CustomTooltipProps {
   active?: boolean;
   payload?: Array<{ name: string; value: number; payload: StatusData }>;
@@ -56,7 +48,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
   );
 }
 
-export function ProjectStatusChart({ data = DEFAULT_DATA }: ProjectStatusChartProps) {
+export function ProjectStatusChart({ data = [] }: ProjectStatusChartProps) {
   const total = data.reduce((sum, d) => sum + d.value, 0);
 
   return (
@@ -66,6 +58,11 @@ export function ProjectStatusChart({ data = DEFAULT_DATA }: ProjectStatusChartPr
         subtitle={`${total} total projects`}
         icon={<PieIcon size={18} />}
       />
+      {data.length === 0 ? (
+        <div className="h-48 flex items-center justify-center text-sm text-text-muted">
+          No live project status data available.
+        </div>
+      ) : (
       <div className="flex items-center gap-4">
         <div className="h-48 flex-1">
           <ResponsiveContainer width="100%" height="100%">
@@ -99,6 +96,7 @@ export function ProjectStatusChart({ data = DEFAULT_DATA }: ProjectStatusChartPr
           ))}
         </div>
       </div>
+      )}
     </Card>
   );
 }

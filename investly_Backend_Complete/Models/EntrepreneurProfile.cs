@@ -53,6 +53,17 @@ namespace Investly_Backend.Models
         public bool IsVerified { get; set; } = false;  // Admin verification
 
         [Required]
+        public bool IsBlocked { get; set; } = false;
+
+        // Counts current delete violations since the last admin unblock.
+        [Required]
+        public int DeletedProjectsCount { get; set; } = 0;
+
+        // Lifetime count of how many times this entrepreneur was blocked.
+        [Required]
+        public int EntrepreneurBlockedCount { get; set; } = 0;
+
+        [Required]
         public DateTime CreatedAt { get; set; }
 
         [Required]

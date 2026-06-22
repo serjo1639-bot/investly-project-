@@ -18,32 +18,30 @@ import {
   Activity,
   CheckCircle,
 } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import { extractError, formatCurrency } from '@/lib/utils';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     adminApi.getStats()
       .then(setStats)
-      .catch(() => {
-        // Use mock data if API not available
-        setStats({
-          totalUsers: 1842,
-          totalProjects: 55,
-          totalInvestments: 3210,
-          totalRevenue: 12500000,
-          activeProjects: 24,
-          pendingProjects: 8,
-          newUsersToday: 14,
-          newUsersThisWeek: 87,
-          totalTransactions: 4820,
-          successRate: 94.5,
-        });
+      .catch((err) => {
+        setStats(null);
+        setError(extractError(err));
       })
       .finally(() => setLoading(false));
   }, []);
+
+  const projectStatusData = stats
+    ? [
+        { name: 'Active', value: stats.activeProjects, color: '#10B981' },
+        { name: 'Pending', value: stats.pendingProjects, color: '#F59E0B' },
+        { name: 'Other', value: Math.max(stats.totalProjects - stats.activeProjects - stats.pendingProjects, 0), color: '#BDC5DC' },
+      ].filter((item) => item.value > 0)
+    : [];
 
   return (
     <ProtectedRoute>
@@ -55,6 +53,12 @@ export default function DashboardPage() {
             Welcome back — here&apos;s what&apos;s happening on Investly today.
           </p>
         </div>
+
+        {error && (
+          <div className="mb-4 bg-danger-light border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger">
+            Unable to load live dashboard data: {error}
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
@@ -129,7 +133,7 @@ export default function DashboardPage() {
             <RevenueChart />
           </div>
           <div className="xl:col-span-1">
-            <ProjectStatusChart />
+            <ProjectStatusChart data={projectStatusData} />
           </div>
         </div>
 

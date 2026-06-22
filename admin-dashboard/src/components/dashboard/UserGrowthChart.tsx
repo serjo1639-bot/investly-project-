@@ -14,20 +14,7 @@ import {
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Users } from 'lucide-react';
 
-const MOCK_DATA = [
-  { month: 'Jan', investors: 45, owners: 12 },
-  { month: 'Feb', investors: 72, owners: 18 },
-  { month: 'Mar', investors: 58, owners: 15 },
-  { month: 'Apr', investors: 91, owners: 24 },
-  { month: 'May', investors: 84, owners: 20 },
-  { month: 'Jun', investors: 115, owners: 30 },
-  { month: 'Jul', investors: 98, owners: 26 },
-  { month: 'Aug', investors: 130, owners: 35 },
-  { month: 'Sep', investors: 145, owners: 40 },
-  { month: 'Oct', investors: 122, owners: 32 },
-  { month: 'Nov', investors: 160, owners: 45 },
-  { month: 'Dec', investors: 185, owners: 52 },
-];
+const LIVE_DATA: Array<{ month: string; investors: number; owners: number }> = [];
 
 interface CustomTooltipProps {
   active?: boolean;
@@ -71,9 +58,14 @@ export function UserGrowthChart() {
           </div>
         }
       />
+      {LIVE_DATA.length === 0 ? (
+        <div className="h-64 flex items-center justify-center text-sm text-text-muted">
+          No live monthly user growth data available yet.
+        </div>
+      ) : (
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={MOCK_DATA} margin={{ top: 5, right: 5, left: -20, bottom: 0 }} barGap={4}>
+          <BarChart data={LIVE_DATA} margin={{ top: 5, right: 5, left: -20, bottom: 0 }} barGap={4}>
             <CartesianGrid strokeDasharray="3 3" stroke="#E4EBFF" vertical={false} />
             <XAxis
               dataKey="month"
@@ -92,6 +84,7 @@ export function UserGrowthChart() {
           </BarChart>
         </ResponsiveContainer>
       </div>
+      )}
     </Card>
   );
 }

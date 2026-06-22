@@ -51,20 +51,15 @@ function StatBox({
 
 const MOCK_PROJECT: Project = {
   id: 'mock',
-  titleEn: 'Advanced Tech Platform',
-  titleAr: 'منصة تقنية متقدمة',
-  descriptionEn:
-    'A cutting-edge technology platform for Libyan businesses to manage operations digitally. This project aims to transform the way companies operate by providing integrated tools for project management, communication, and analytics.',
-  descriptionAr: 'منصة تقنية حديثة للشركات الليبية لإدارة العمليات رقمياً.',
+  title: 'منصة تقنية متقدمة',
+  description: 'منصة تقنية حديثة للشركات الليبية لإدارة العمليات رقمياً.',
   category: 'tech',
   status: 'pending',
-  goal: 500000,
-  raised: 0,
+  fundingGoal: 500000,
+  currentAmount: 0,
   minInvestment: 1000,
   maxInvestment: 50000,
-  currencyCode: 'LYD',
-  cityEn: 'Tripoli',
-  cityAr: 'طرابلس',
+  city: 'طرابلس',
   ownerName: 'Mahmoud Ibrahim',
   ownerCompanyName: 'TechLibya LLC',
   investorsCount: 0,
@@ -89,6 +84,7 @@ export default function ProjectDetailPage() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   // Approve / reject modal state
   const [showApprove, setShowApprove] = useState(false);
@@ -99,9 +95,13 @@ export default function ProjectDetailPage() {
 
   // Fetch project; fall back to mock data when the API is offline
   useEffect(() => {
+    setLoadError('');
     projectsApi.getProjectById(id)
       .then(setProject)
-      .catch(() => setProject({ ...MOCK_PROJECT, id }))
+      .catch((err) => {
+        setProject(null);
+        setLoadError(extractError(err));
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -112,11 +112,11 @@ export default function ProjectDetailPage() {
     setActionError('');
     try {
       await projectsApi.approveProject(project.id);
-    } catch (err) {
-      console.warn('API unavailable — applied locally:', extractError(err));
-    } finally {
       setProject((p) => p ? { ...p, status: 'active' } : p);
       setShowApprove(false);
+    } catch (err) {
+      setActionError(extractError(err));
+    } finally {
       setActionLoading(false);
     }
   };
@@ -128,12 +128,12 @@ export default function ProjectDetailPage() {
     setActionError('');
     try {
       await projectsApi.rejectProject(project.id, rejectReason || undefined);
-    } catch (err) {
-      console.warn('API unavailable — applied locally:', extractError(err));
-    } finally {
       setProject((p) => p ? { ...p, status: 'rejected' } : p);
       setShowReject(false);
       setRejectReason('');
+    } catch (err) {
+      setActionError(extractError(err));
+    } finally {
       setActionLoading(false);
     }
   };
@@ -153,9 +153,19 @@ export default function ProjectDetailPage() {
     );
   }
 
-  if (!project) return null;
+  if (!project) {
+    return (
+      <ProtectedRoute>
+        <DashboardLayout title="Project Detail">
+          <div className="bg-danger-light border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger">
+            Unable to load live project data: {loadError || 'Project not found'}
+          </div>
+        </DashboardLayout>
+      </ProtectedRoute>
+    );
+  }
 
-  const progress = Math.min(100, Math.round((project.raised / project.goal) * 100));
+  const progress = Math.min(100, Math.round((project.currentAmount / project.fundingGoal) * 100));
 
   // ── Main render ───────────────────────────────────────────────────────────
 
@@ -173,10 +183,10 @@ export default function ProjectDetailPage() {
           <div className="flex items-start justify-between flex-wrap gap-3">
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <h1 className="text-2xl font-bold text-text-primary">{project.titleEn}</h1>
+                <h1 className="text-2xl font-bold text-text-primary">{project.title}</h1>
                 <StatusBadge status={project.status} size="md" />
               </div>
-              <p className="text-sm text-text-muted">{project.titleAr} · {project.reference}</p>
+              <p className="text-sm text-text-muted">{project.reference}</p>
             </div>
             {/* Approve / Reject buttons are only shown for pending projects */}
             {project.status === 'pending' && (
@@ -215,8 +225,8 @@ export default function ProjectDetailPage() {
               <CardHeader title="Project Overview" />
               {/* Key metric grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-                <StatBox icon={<Target size={18} />} label="Funding Goal" value={formatCurrency(project.goal)} />
-                <StatBox icon={<DollarSign size={18} />} label="Amount Raised" value={formatCurrency(project.raised)} color="text-teal" />
+                <StatBox icon={<Target size={18} />} label="Funding Goal" value={formatCurrency(project.fundingGoal)} />
+                <StatBox icon={<DollarSign size={18} />} label="Amount Raised" value={formatCurrency(project.currentAmount)} color="text-teal" />
                 <StatBox icon={<Users size={18} />} label="Investors" value={`${project.investorsCount ?? 0}`} color="text-amber" />
                 <StatBox icon={<Eye size={18} />} label="Views" value={`${project.viewsCount ?? 0}`} color="text-info" />
               </div>
@@ -225,7 +235,7 @@ export default function ProjectDetailPage() {
               <div className="mb-5">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-text-primary">{progress}% Funded</span>
-                  <span className="text-sm text-text-muted">{formatCurrency(project.goal - project.raised)} remaining</span>
+                  <span className="text-sm text-text-muted">{formatCurrency(project.fundingGoal - project.currentAmount)} remaining</span>
                 </div>
                 <div className="h-3 bg-background rounded-full overflow-hidden">
                   <div
@@ -235,21 +245,11 @@ export default function ProjectDetailPage() {
                 </div>
               </div>
 
-              {/* Description in English */}
+              {/* Description */}
               <div>
                 <h4 className="text-sm font-semibold text-text-primary mb-2">Description</h4>
-                <p className="text-sm text-text-secondary leading-relaxed">{project.descriptionEn}</p>
+                <p className="text-sm text-text-secondary leading-relaxed text-right" dir="rtl">{project.description}</p>
               </div>
-
-              {/* Arabic description shown right-aligned when available */}
-              {project.descriptionAr && (
-                <div className="mt-4 pt-4 border-t border-border-light">
-                  <h4 className="text-sm font-semibold text-text-primary mb-2 text-right">الوصف</h4>
-                  <p className="text-sm text-text-secondary leading-relaxed text-right" dir="rtl">
-                    {project.descriptionAr}
-                  </p>
-                </div>
-              )}
             </Card>
 
             <Card>
@@ -257,7 +257,7 @@ export default function ProjectDetailPage() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 {[
                   { label: 'Category', value: getCategoryLabel(project.category) },
-                  { label: 'Location', value: project.cityEn ?? '-' },
+                  { label: 'Location', value: project.city ?? '-' },
                   { label: 'Min Investment', value: formatCurrency(project.minInvestment) },
                   { label: 'Max Investment', value: formatCurrency(project.maxInvestment ?? 0) },
                   { label: 'Duration', value: `${project.duration ?? 0} days` },
@@ -356,7 +356,7 @@ export default function ProjectDetailPage() {
             <CheckCircle size={18} className="text-primary flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-text-primary mb-1">
-                Approve &ldquo;{project.titleEn}&rdquo;?
+                Approve &ldquo;{project.title}&rdquo;?
               </p>
               <p className="text-sm text-text-secondary">
                 The project will become visible to investors and open for funding.
@@ -394,7 +394,7 @@ export default function ProjectDetailPage() {
             <div className="flex items-start gap-3 p-3 bg-danger-light rounded-xl border border-danger/20">
               <AlertTriangle size={18} className="text-danger flex-shrink-0 mt-0.5" />
               <p className="text-sm text-text-secondary">
-                Rejecting &ldquo;{project.titleEn}&rdquo; will notify the project owner.
+                Rejecting &ldquo;{project.title}&rdquo; will notify the project owner.
               </p>
             </div>
             {/* Optional rejection reason sent to the backend and the owner */}

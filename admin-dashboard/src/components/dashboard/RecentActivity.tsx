@@ -1,10 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardHeader } from '@/components/ui/Card';
-import { Avatar } from '@/components/ui/Avatar';
 import { StatusBadge } from '@/components/ui/Badge';
 import { Activity } from 'lucide-react';
+import { adminApi } from '@/lib/api/admin';
 import { getRelativeTime } from '@/lib/utils';
 
 interface ActivityItem {
@@ -16,15 +16,6 @@ interface ActivityItem {
   status?: string;
   timestamp: string;
 }
-
-const MOCK_ACTIVITY: ActivityItem[] = [
-  { id: '1', type: 'investment', user: 'Ahmad Al-Mansouri', action: 'invested in Tech Platform', amount: 5000, status: 'completed', timestamp: new Date(Date.now() - 5 * 60000).toISOString() },
-  { id: '2', type: 'registration', user: 'Fatima Zahra', action: 'registered as investor', timestamp: new Date(Date.now() - 15 * 60000).toISOString() },
-  { id: '3', type: 'project', user: 'Mahmoud Ibrahim', action: 'submitted new project', status: 'pending', timestamp: new Date(Date.now() - 32 * 60000).toISOString() },
-  { id: '4', type: 'payment', user: 'Khaled Hassan', action: 'topped up wallet', amount: 10000, status: 'completed', timestamp: new Date(Date.now() - 58 * 60000).toISOString() },
-  { id: '5', type: 'investment', user: 'Sara Ali', action: 'invested in Green Energy', amount: 2500, status: 'pending', timestamp: new Date(Date.now() - 80 * 60000).toISOString() },
-  { id: '6', type: 'project', user: 'Omar Qaddafi', action: 'project approved', status: 'active', timestamp: new Date(Date.now() - 2 * 3600000).toISOString() },
-];
 
 const typeColors: Record<ActivityItem['type'], string> = {
   investment: 'bg-primary-light text-primary',
@@ -41,6 +32,29 @@ const typeIcons: Record<ActivityItem['type'], string> = {
 };
 
 export function RecentActivity() {
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    adminApi.getActivityLogs({ pageSize: 6 })
+      .then((res) => {
+        const items = Array.isArray(res.data) ? res.data : [];
+        setActivity(items.map((raw, index: number) => {
+          const item = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
+          return {
+            id: String(item.id ?? index),
+            type: (item.type === 'investment' || item.type === 'payment' || item.type === 'project' ? item.type : 'registration') as ActivityItem['type'],
+            user: String(item.adminName ?? item.userName ?? 'System'),
+            action: String(item.action ?? item.details ?? 'Recorded activity'),
+            status: item.status ? String(item.status) : undefined,
+            timestamp: String(item.timestamp ?? item.createdAt ?? new Date().toISOString()),
+          };
+        }));
+      })
+      .catch(() => setActivity([]))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <Card padding="none">
       <div className="px-5 pt-5">
@@ -51,7 +65,11 @@ export function RecentActivity() {
         />
       </div>
       <div className="divide-y divide-border-light">
-        {MOCK_ACTIVITY.map((item) => (
+        {loading ? (
+          <div className="px-5 py-8 text-sm text-text-muted">Loading live activity...</div>
+        ) : activity.length === 0 ? (
+          <div className="px-5 py-8 text-sm text-text-muted">No live activity yet.</div>
+        ) : activity.map((item) => (
           <div key={item.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-background-dark/30 transition-colors">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${typeColors[item.type]} text-base`}>
               {typeIcons[item.type]}

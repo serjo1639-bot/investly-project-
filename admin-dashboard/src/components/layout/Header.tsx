@@ -63,9 +63,9 @@ export function Header({ onMobileMenuOpen, title }: HeaderProps) {
             onClick={() => setShowProfile(!showProfile)}
             className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-background-dark transition-colors"
           >
-            {user && <Avatar name={user.name} size="sm" />}
+            {user && <Avatar name={`${user.firstName} ${user.lastName}`} size="sm" />}
             <div className="hidden sm:block text-left">
-              <p className="text-xs font-semibold text-text-primary leading-tight">{user?.name}</p>
+              <p className="text-xs font-semibold text-text-primary leading-tight">{user?.firstName} {user?.lastName}</p>
               <p className="text-[10px] text-text-muted leading-tight">Administrator</p>
             </div>
             <ChevronDown size={14} className="text-text-muted hidden sm:block" />

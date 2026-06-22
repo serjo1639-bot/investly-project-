@@ -18,10 +18,12 @@ namespace Investly_Backend.Services;
 public class AdminService : IAdminService
 {
     private readonly AppDbContext _context;
+    private readonly INotificationService _notificationService;
 
-    public AdminService(AppDbContext context)
+    public AdminService(AppDbContext context, INotificationService notificationService)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     public async Task<AdminDashboardDto> GetDashboardAsync()
@@ -72,6 +74,7 @@ public class AdminService : IAdminService
             LastName = u.LastName,
             IsActive = u.IsActive,
             Roles = u.UserRoles.Select(ur => ur.Role.RoleName).ToList(),
+            CreatedAt = u.CreatedAt,
             WalletBalance = u.UserWallet?.Balance ?? 0
         }).ToList();
 
@@ -194,5 +197,64 @@ public class AdminService : IAdminService
             Page = page,
             PageSize = pageSize
         };
+    }
+
+    public async Task<PaginatedResult<BlockedEntrepreneurDto>> GetBlockedEntrepreneursAsync(int page = 1, int pageSize = 10)
+    {
+        var query = _context.EntrepreneurProfiles
+            .Include(p => p.User)
+            .Where(p => p.IsBlocked);
+
+        var total = await query.CountAsync();
+        var profiles = await query
+            .OrderByDescending(p => p.UpdatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var dtos = profiles.Select(p => new BlockedEntrepreneurDto
+        {
+            ProfileId = p.ProfileId,
+            UserId = p.UserId,
+            Email = p.User?.Email ?? "",
+            FullName = p.User != null ? p.User.FirstName + " " + p.User.LastName : "",
+            CompanyName = p.CompanyName ?? "",
+            DeletedProjectsCount = p.DeletedProjectsCount,
+            EntrepreneurBlockedCount = p.EntrepreneurBlockedCount,
+            IsBlocked = p.IsBlocked,
+            UpdatedAt = p.UpdatedAt
+        }).ToList();
+
+        return new PaginatedResult<BlockedEntrepreneurDto>
+        {
+            Items = dtos,
+            TotalCount = total,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    public async Task<bool> UnblockEntrepreneurAsync(int profileId)
+    {
+        var profile = await _context.EntrepreneurProfiles.FindAsync(profileId);
+        if (profile == null || !profile.IsBlocked)
+            return false;
+
+        profile.IsBlocked = false;
+        profile.DeletedProjectsCount = 0;
+        profile.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        await _notificationService.CreateAsync(
+            profile.UserId,
+            "EntrepreneurUnblocked",
+            "تم رفع الحظر",
+            "Entrepreneur account unblocked",
+            "قامت الإدارة برفع الحظر عن حساب رائد الأعمال الخاص بك. يمكنك الآن متابعة إجراءات المشاريع.",
+            "Admin approved unblocking your entrepreneur account. You can now continue project actions.",
+            null,
+            null);
+
+        return true;
     }
 }

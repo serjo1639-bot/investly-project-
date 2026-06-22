@@ -7,8 +7,8 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
 import { adminApi } from '@/lib/api/admin';
-import { MOCK_ACTIVITY_LOGS, ActivityLog } from '@/app/activity/page';
-import { getRelativeTime, formatDateTime } from '@/lib/utils';
+import type { ActivityLog } from '@/app/activity/page';
+import { extractError, getRelativeTime, formatDateTime } from '@/lib/utils';
 import {
   ArrowLeft,
   LogIn,
@@ -88,20 +88,20 @@ export default function AdminActivityPage() {
 
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
 
-  // Fetch activity logs for this specific admin.
-  // Falls back to filtering the shared mock data when the API is offline.
+  // Fetch activity logs for this specific admin from the backend only.
   useEffect(() => {
     const loadLogs = async () => {
       setLoading(true);
+      setError('');
       try {
         const data = await adminApi.getActivityLogs({ adminId } as { page?: number; pageSize?: number; adminId?: string });
-        setLogs(Array.isArray(data) ? data : []);
-      } catch {
-        // Filter the shared mock data by adminId
-        const mockFiltered = MOCK_ACTIVITY_LOGS.filter((l) => l.adminId === adminId);
-        setLogs(mockFiltered);
+        setLogs(Array.isArray(data?.data) ? data.data as ActivityLog[] : []);
+      } catch (err) {
+        setLogs([]);
+        setError(extractError(err));
       } finally {
         setLoading(false);
       }
@@ -210,6 +210,12 @@ export default function AdminActivityPage() {
             />
             <span className="text-xs text-text-muted">{filtered.length} entries</span>
           </div>
+
+          {error && (
+            <div className="m-4 bg-danger-light border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger">
+              Unable to load live activity data: {error}
+            </div>
+          )}
 
           <div className="divide-y divide-border-light">
             {filtered.map((log) => (

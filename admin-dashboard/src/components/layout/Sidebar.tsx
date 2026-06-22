@@ -137,10 +137,10 @@ export function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
       <div className="flex-shrink-0 border-t border-white/10 p-4">
         {user && (
           <div className={`flex items-center gap-3 mb-3 ${collapsed ? 'justify-center' : ''}`}>
-            <Avatar name={user.name} size="sm" />
+            <Avatar name={`${user.firstName} ${user.lastName}`} size="sm" />
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">{user.name}</p>
+                <p className="text-sm font-medium text-white truncate">{user.firstName} {user.lastName}</p>
                 <p className="text-[11px] text-white/40 truncate">{user.email}</p>
               </div>
             )}

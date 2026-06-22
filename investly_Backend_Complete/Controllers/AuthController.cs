@@ -59,6 +59,8 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
         var response = await _authService.RegisterAsync(request);
+        if (response == null)
+            return Conflict(new ApiResponse { Success = false, Message = "An account with this email already exists" });
         return Ok(response);
     }
 

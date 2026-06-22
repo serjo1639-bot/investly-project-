@@ -136,8 +136,8 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IMediaService, MediaService>();
-// EmailService is Singleton because SmtpClient is expensive to create
-builder.Services.AddSingleton<IEmailService, EmailService>();
+// EmailService uses Resend over HTTP. AddHttpClient manages connection reuse.
+builder.Services.AddHttpClient<IEmailService, EmailService>();
 
 // ---- CORS (Cross-Origin Resource Sharing) ----
 // Browsers block JavaScript from one domain calling APIs on another.
@@ -147,7 +147,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin();
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
     });
 });
 

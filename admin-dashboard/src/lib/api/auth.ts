@@ -1,14 +1,44 @@
 import apiClient from './config';
 import { AuthSession, User } from '@/types';
 
+type ApiObject = Record<string, unknown>;
+
+const asObject = (value: unknown): ApiObject =>
+  value && typeof value === 'object' ? value as ApiObject : {};
+
+const normalizeUser = (user: unknown): User => {
+  const source = asObject(user);
+  const roles = Array.isArray(source.roles) ? source.roles : [];
+  const normalizedRoles = roles.map((role) => String(role).toLowerCase());
+
+  return {
+    ...source,
+    id: String(source.id ?? source.userId ?? source.user_id ?? ''),
+    firstName: String(source.firstName ?? source.first_name ?? ''),
+    lastName: String(source.lastName ?? source.last_name ?? ''),
+    phone: String(source.phone ?? ''),
+    email: String(source.email ?? ''),
+    role: String(source.role ?? '').toLowerCase() === 'admin' || normalizedRoles.includes('admin') ? 'admin' : 'guest',
+    type: 'individual',
+  } as User;
+};
+
+const normalizeSession = (payload: unknown): AuthSession => {
+  const payloadObject = asObject(payload);
+  const source = asObject(payloadObject.data ?? payload);
+  return {
+    token: String(source.token ?? ''),
+    user: normalizeUser(source.user ?? source),
+  };
+};
+
 export const authApi = {
   loginEmail: async (email: string, password: string): Promise<AuthSession> => {
-    const response = await apiClient.post('/auth/login-email', {
+    const response = await apiClient.post('/auth/login', {
       email,
       password,
-      role: 'admin',
     });
-    return response.data;
+    return normalizeSession(response.data);
   },
 
   login: async (phone: string, password: string): Promise<AuthSession> => {
@@ -17,29 +47,27 @@ export const authApi = {
       password,
       role: 'admin',
     });
-    return response.data;
+    return normalizeSession(response.data);
   },
 
   getProfile: async (): Promise<User> => {
-    const response = await apiClient.get('/auth/profile');
-    return response.data?.data ?? response.data;
+    const response = await apiClient.get('/auth/me');
+    return normalizeUser(response.data?.data ?? response.data);
   },
 
   updateProfile: async (data: Partial<User>): Promise<User> => {
-    const response = await apiClient.put('/auth/profile', data);
-    return response.data?.data ?? response.data;
-  },
-
-  refreshToken: async (refreshToken: string): Promise<{ token: string; refreshToken: string }> => {
-    const response = await apiClient.post('/auth/refresh-token', { refreshToken });
-    return response.data;
+    // Backend profile edits live under /users/{id}; /auth/me is only a reader.
+    const currentUser = await authApi.getProfile();
+    const response = await apiClient.put(`/users/${currentUser.id}`, data);
+    return normalizeUser(response.data?.data ?? response.data);
   },
 
   logout: async (): Promise<void> => {
-    await apiClient.post('/auth/logout');
+    // JWT logout is client-side only because the backend does not store sessions.
+    return Promise.resolve();
   },
 
   changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
-    await apiClient.post('/auth/change-password', { currentPassword, newPassword });
+    await apiClient.post('/auth/change-password', { oldPassword: currentPassword, newPassword });
   },
 };

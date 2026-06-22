@@ -11,7 +11,7 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { investmentsApi } from '@/lib/api/investments';
 import { Investment } from '@/types';
-import { formatDate, formatCurrency } from '@/lib/utils';
+import { extractError, formatDate, formatCurrency } from '@/lib/utils';
 import { RefreshCw, Download } from 'lucide-react';
 
 const PAGE_SIZE = 15;
@@ -24,33 +24,9 @@ const STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
-const METHOD_OPTIONS = [
-  { value: '', label: 'All Methods' },
-  { value: 'wallet', label: 'Wallet' },
-  { value: 'credit_card', label: 'Credit Card' },
-  { value: 'recharge_card', label: 'Recharge Card' },
-];
+// payment methods removed as they are no longer in the Investment type
 
-// Mock data
-const MOCK_INVESTMENTS: Investment[] = Array.from({ length: 50 }, (_, i) => ({
-  id: `inv-${i + 1}`,
-  projectId: `p${(i % 8) + 1}`,
-  projectTitle: ['Tech Platform', 'AI Intelligence', 'Smart Education', 'Supply Chain', 'Digital Health', 'E-Commerce', 'Green Energy', 'Agri Innovation'][i % 8],
-  reference: `INV-${String(1000 + i).padStart(4, '0')}`,
-  amount: [1000, 2500, 5000, 10000, 500, 15000, 3000, 7500][i % 8],
-  currency: 'LYD',
-  paymentMethod: (['wallet', 'credit_card', 'recharge_card'] as Investment['paymentMethod'][])[i % 3],
-  status: (['completed', 'completed', 'pending', 'completed', 'failed'] as Investment['status'][])[i % 5],
-  investorId: `user-${(i % 10) + 1}`,
-  investorName: ['Ahmad Al-Mansouri', 'Fatima Zahra', 'Khaled Hassan', 'Sara Ali', 'Omar Said'][i % 5],
-  createdAt: new Date(Date.now() - i * 86400000 * 2).toISOString(),
-}));
-
-const METHOD_LABELS: Record<string, string> = {
-  wallet: 'Wallet',
-  credit_card: 'Credit Card',
-  recharge_card: 'Recharge Card',
-};
+// Method labels removed
 
 export default function InvestmentsPage() {
   const [investments, setInvestments] = useState<Investment[]>([]);
@@ -59,10 +35,11 @@ export default function InvestmentsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [methodFilter, setMethodFilter] = useState('');
+  const [error, setError] = useState('');
 
   const fetch = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const res = await investmentsApi.getAllInvestments({
         page,
@@ -71,21 +48,14 @@ export default function InvestmentsPage() {
       });
       setInvestments(res.data ?? []);
       setTotal(res.total ?? 0);
-    } catch {
-      let filtered = MOCK_INVESTMENTS;
-      if (search) filtered = filtered.filter((i) =>
-        i.investorName?.toLowerCase().includes(search.toLowerCase()) ||
-        i.projectTitle?.toLowerCase().includes(search.toLowerCase()) ||
-        i.reference?.toLowerCase().includes(search.toLowerCase())
-      );
-      if (statusFilter) filtered = filtered.filter((i) => i.status === statusFilter);
-      if (methodFilter) filtered = filtered.filter((i) => i.paymentMethod === methodFilter);
-      setTotal(filtered.length);
-      setInvestments(filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
+    } catch (err) {
+      setInvestments([]);
+      setTotal(0);
+      setError(extractError(err));
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter, methodFilter]);
+  }, [page, search, statusFilter]);
 
   useEffect(() => {
     const t = setTimeout(fetch, search ? 400 : 0);
@@ -93,6 +63,8 @@ export default function InvestmentsPage() {
   }, [fetch, search]);
 
   const totalAmount = investments.reduce((sum, inv) => inv.status === 'completed' ? sum + inv.amount : sum, 0);
+  const completedCount = investments.filter(i => i.status === 'completed').length;
+  const pendingCount = investments.filter(i => i.status === 'pending').length;
 
   const columns = [
     {
@@ -120,14 +92,7 @@ export default function InvestmentsPage() {
       key: 'amount',
       header: 'Amount',
       render: (inv: Investment) => (
-        <span className="text-sm font-semibold text-text-primary">{formatCurrency(inv.amount, inv.currency)}</span>
-      ),
-    },
-    {
-      key: 'paymentMethod',
-      header: 'Method',
-      render: (inv: Investment) => (
-        <span className="text-xs text-text-muted">{METHOD_LABELS[inv.paymentMethod ?? ''] ?? inv.paymentMethod}</span>
+        <span className="text-sm font-semibold text-text-primary">{formatCurrency(inv.amount, 'LYD')}</span>
       ),
     },
     {
@@ -158,11 +123,17 @@ export default function InvestmentsPage() {
         </div>
 
         {/* Summary cards */}
+        {error && (
+          <div className="mb-4 bg-danger-light border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger">
+            Unable to load live investment data: {error}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
           {[
             { label: 'Total Investments', value: total.toString(), color: 'text-primary' },
-            { label: 'Completed', value: MOCK_INVESTMENTS.filter(i => i.status === 'completed').length.toString(), color: 'text-success' },
-            { label: 'Pending', value: MOCK_INVESTMENTS.filter(i => i.status === 'pending').length.toString(), color: 'text-amber' },
+            { label: 'Completed', value: completedCount.toString(), color: 'text-success' },
+            { label: 'Pending', value: pendingCount.toString(), color: 'text-amber' },
             { label: 'Total Volume', value: formatCurrency(totalAmount), color: 'text-teal' },
           ].map((s) => (
             <Card key={s.label} padding="sm">
@@ -176,7 +147,6 @@ export default function InvestmentsPage() {
           <div className="flex flex-wrap items-center gap-3 p-4 border-b border-border-light">
             <SearchInput value={search} onChange={setSearch} placeholder="Search by investor, project, reference..." className="w-80" />
             <Select options={STATUS_OPTIONS} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="w-36" />
-            <Select options={METHOD_OPTIONS} value={methodFilter} onChange={(e) => { setMethodFilter(e.target.value); setPage(1); }} className="w-40" />
             <Button variant="ghost" size="sm" icon={<RefreshCw size={14} />} onClick={fetch}>Refresh</Button>
           </div>
           <Table columns={columns} data={investments} loading={loading} getRowKey={(i) => i.id} emptyMessage="No investments found." />

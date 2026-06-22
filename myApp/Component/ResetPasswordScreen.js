@@ -21,7 +21,7 @@ import { authAPI } from '../services/api';
 import { sessionManager } from '../services/session';
 import { useAuth } from '../hooks/useAuth';
 import { useTopPopup } from '../hooks/useTopPopup';
-import { mapAuthSession, resolveUserRole } from '../services/api';
+import { mapAuthSession } from '../services/api';
 
 export default function ResetPasswordScreen({ navigation }) {
   const { t, i18n }    = useTranslation();
@@ -70,7 +70,7 @@ export default function ResetPasswordScreen({ navigation }) {
           id:   response.user.id       || '1',
           name: response.user.name     || 'مستخدم',
         };
-        await sessionManager.saveSession(response.token, response.refreshToken, normalizedUser);
+        await sessionManager.saveSession(response.token, normalizedUser);
         await updateUser(normalizedUser);
 
         popup.success(

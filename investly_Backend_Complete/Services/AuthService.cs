@@ -83,12 +83,29 @@ public class AuthService : IAuthService
         _context.Users.Add(user);
         await _context.SaveChangesAsync();  // INSERT INTO Users ...
 
-        // Assign the "User" role to the new account
+        // Assign the base "User" role to the new account.
         var userRole = await _context.Roles.FirstOrDefaultAsync(r => r.RoleName == "User");
         if (userRole != null)
         {
-            _context.UserRoles.Add(new UserRole { UserId = user.UserId, RoleId = userRole.RoleId });
+            _context.UserRoles.Add(new UserRole { UserId = user.UserId, RoleId = userRole.RoleId, AssignedAt = DateTime.UtcNow });
             await _context.SaveChangesAsync();  // INSERT INTO UserRoles ...
+        }
+
+        // Local/demo role selection:
+        // RegisterRequest has a Role field, so honor it when it matches a real role.
+        // This lets Swagger create Investor/Entrepreneur/Admin demo accounts.
+        // In production, public self-registration should NOT be allowed to create Admin users.
+        if (!string.IsNullOrWhiteSpace(dto.Role) &&
+            !dto.Role.Equals("User", StringComparison.OrdinalIgnoreCase))
+        {
+            var requestedRole = await _context.Roles
+                .FirstOrDefaultAsync(r => r.RoleName.ToLower() == dto.Role.ToLower());
+
+            if (requestedRole != null && requestedRole.RoleId != userRole?.RoleId)
+            {
+                _context.UserRoles.Add(new UserRole { UserId = user.UserId, RoleId = requestedRole.RoleId, AssignedAt = DateTime.UtcNow });
+                await _context.SaveChangesAsync();  // INSERT INTO UserRoles ...
+            }
         }
 
         // Every user gets a wallet with 0 balance automatically

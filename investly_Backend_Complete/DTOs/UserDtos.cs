@@ -91,6 +91,9 @@ public class EntrepreneurProfileDto
     public int ExperienceYears { get; set; }
     public string City { get; set; } = string.Empty;
     public bool IsVerified { get; set; }
+    public bool IsBlocked { get; set; }
+    public int DeletedProjectsCount { get; set; }
+    public int EntrepreneurBlockedCount { get; set; }
 }
 
 // Wallet info (nested inside user responses)

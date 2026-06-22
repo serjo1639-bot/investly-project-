@@ -33,3 +33,10 @@ public class MarkReadRequest
 {
     public List<int> NotificationIds { get; set; } = new();
 }
+
+public class EmailTestRequest
+{
+    public string To { get; set; } = string.Empty;
+    public string? Subject { get; set; }
+    public string? Body { get; set; }
+}

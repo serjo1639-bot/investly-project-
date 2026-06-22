@@ -1,6 +1,11 @@
 // ============================================================
 // NOTIFICATIONS CONTROLLER - User notification management
 // ============================================================
+// These endpoints are for IN-APP notifications stored in the database.
+// They do not require Firebase. The mobile/admin frontend asks the backend
+// for notifications using these endpoints and renders them inside the app.
+//
+// Firebase would only be needed for native phone push notifications.
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
@@ -21,7 +26,7 @@ public class NotificationsController : ControllerBase
         _notificationService = notificationService;
     }
 
-    // GET /api/notifications - Paginated notification list
+    // GET /api/notifications - reads notifications created automatically by services.
     [HttpGet]
     public async Task<IActionResult> GetNotifications([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool unreadOnly = false)
     {
@@ -32,7 +37,7 @@ public class NotificationsController : ControllerBase
         return Ok(result);
     }
 
-    // GET /api/notifications/unread-count
+    // GET /api/notifications/unread-count - used by the frontend badge/counter.
     [HttpGet("unread-count")]
     public async Task<IActionResult> GetUnreadCount()
     {
@@ -43,7 +48,7 @@ public class NotificationsController : ControllerBase
         return Ok(new { UnreadCount = count });
     }
 
-    // POST /api/notifications/mark-read - Mark specific notifications as read
+    // POST /api/notifications/mark-read - user opened/acknowledged notification(s).
     [HttpPost("mark-read")]
     public async Task<IActionResult> MarkAsRead([FromBody] MarkReadRequest request)
     {

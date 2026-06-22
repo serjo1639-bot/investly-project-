@@ -20,7 +20,6 @@ import {
   Eye,
   Trash2,
   RefreshCw,
-  Plus,
 } from 'lucide-react';
 
 const PAGE_SIZE = 15;
@@ -46,14 +45,14 @@ const STATUS_OPTIONS = [
 
 // Mock data fallback
 const MOCK_PROJECTS: Project[] = [
-  { id: 'p1', titleEn: 'Advanced Tech Platform', titleAr: 'منصة تقنية متقدمة', category: 'tech', status: 'active', goal: 500000, raised: 320000, minInvestment: 1000, ownerName: 'Mahmoud Ibrahim', cityEn: 'Tripoli', investorsCount: 64, createdAt: new Date(Date.now() - 30 * 86400000).toISOString() },
-  { id: 'p2', titleEn: 'AI Business Intelligence', titleAr: 'ذكاء اصطناعي للأعمال', category: 'tech', status: 'pending', goal: 750000, raised: 0, minInvestment: 2000, ownerName: 'Sara Ali', cityEn: 'Benghazi', investorsCount: 0, createdAt: new Date(Date.now() - 5 * 86400000).toISOString() },
-  { id: 'p3', titleEn: 'Smart Education Platform', titleAr: 'منصة تعليمية ذكية', category: 'edu', status: 'active', goal: 300000, raised: 285000, minInvestment: 500, ownerName: 'Khaled Hassan', cityEn: 'Misrata', investorsCount: 130, createdAt: new Date(Date.now() - 60 * 86400000).toISOString() },
-  { id: 'p4', titleEn: 'Supply Chain Management', titleAr: 'إدارة سلسلة التوريد', category: 'tech', status: 'completed', goal: 200000, raised: 200000, minInvestment: 1000, ownerName: 'Ahmad Al-Mansouri', cityEn: 'Zawiya', investorsCount: 45, createdAt: new Date(Date.now() - 90 * 86400000).toISOString() },
-  { id: 'p5', titleEn: 'Digital Health App', titleAr: 'تطبيق صحة رقمية', category: 'health', status: 'active', goal: 400000, raised: 180000, minInvestment: 500, ownerName: 'Fatima Zahra', cityEn: 'Sabha', investorsCount: 72, createdAt: new Date(Date.now() - 45 * 86400000).toISOString() },
-  { id: 'p6', titleEn: 'Local E-Commerce Platform', titleAr: 'منصة تجارة إلكترونية', category: 'tech', status: 'pending', goal: 600000, raised: 0, minInvestment: 1500, ownerName: 'Omar Said', cityEn: 'Tripoli', investorsCount: 0, createdAt: new Date(Date.now() - 2 * 86400000).toISOString() },
-  { id: 'p7', titleEn: 'Green Energy Project', titleAr: 'مشروع طاقة خضراء', category: 'energy', status: 'active', goal: 1000000, raised: 650000, minInvestment: 5000, ownerName: 'Ali Hassan', cityEn: 'Tripoli', investorsCount: 28, createdAt: new Date(Date.now() - 120 * 86400000).toISOString() },
-  { id: 'p8', titleEn: 'Agricultural Innovation', titleAr: 'ابتكار زراعي', category: 'agri', status: 'rejected', goal: 250000, raised: 0, minInvestment: 1000, ownerName: 'Nadia Ibrahim', cityEn: 'Sebha', investorsCount: 0, createdAt: new Date(Date.now() - 20 * 86400000).toISOString() },
+  { id: 'p1', title: 'منصة تقنية متقدمة', category: 'tech', status: 'active', fundingGoal: 500000, currentAmount: 320000, minInvestment: 1000, ownerName: 'Mahmoud Ibrahim', city: 'طرابلس', investorsCount: 64, createdAt: new Date(Date.now() - 30 * 86400000).toISOString() },
+  { id: 'p2', title: 'ذكاء اصطناعي للأعمال', category: 'tech', status: 'pending', fundingGoal: 750000, currentAmount: 0, minInvestment: 2000, ownerName: 'Sara Ali', city: 'بنغازي', investorsCount: 0, createdAt: new Date(Date.now() - 5 * 86400000).toISOString() },
+  { id: 'p3', title: 'منصة تعليمية ذكية', category: 'edu', status: 'active', fundingGoal: 300000, currentAmount: 285000, minInvestment: 500, ownerName: 'Khaled Hassan', city: 'مصراتة', investorsCount: 130, createdAt: new Date(Date.now() - 60 * 86400000).toISOString() },
+  { id: 'p4', title: 'إدارة سلسلة التوريد', category: 'tech', status: 'completed', fundingGoal: 200000, currentAmount: 200000, minInvestment: 1000, ownerName: 'Ahmad Al-Mansouri', city: 'الزاوية', investorsCount: 45, createdAt: new Date(Date.now() - 90 * 86400000).toISOString() },
+  { id: 'p5', title: 'تطبيق صحة رقمية', category: 'health', status: 'active', fundingGoal: 400000, currentAmount: 180000, minInvestment: 500, ownerName: 'Fatima Zahra', city: 'سبها', investorsCount: 72, createdAt: new Date(Date.now() - 45 * 86400000).toISOString() },
+  { id: 'p6', title: 'منصة تجارة إلكترونية', category: 'tech', status: 'pending', fundingGoal: 600000, currentAmount: 0, minInvestment: 1500, ownerName: 'Omar Said', city: 'طرابلس', investorsCount: 0, createdAt: new Date(Date.now() - 2 * 86400000).toISOString() },
+  { id: 'p7', title: 'مشروع طاقة خضراء', category: 'energy', status: 'active', fundingGoal: 1000000, currentAmount: 650000, minInvestment: 5000, ownerName: 'Ali Hassan', city: 'طرابلس', investorsCount: 28, createdAt: new Date(Date.now() - 120 * 86400000).toISOString() },
+  { id: 'p8', title: 'ابتكار زراعي', category: 'agri', status: 'rejected', fundingGoal: 250000, currentAmount: 0, minInvestment: 1000, ownerName: 'Nadia Ibrahim', city: 'سبها', investorsCount: 0, createdAt: new Date(Date.now() - 20 * 86400000).toISOString() },
 ];
 
 export default function ProjectsPage() {
@@ -73,6 +72,7 @@ export default function ProjectsPage() {
 
   const fetchProjects = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const res = await projectsApi.getAllProjects({
         page,
@@ -83,13 +83,10 @@ export default function ProjectsPage() {
       });
       setProjects(res.data ?? []);
       setTotal(res.total ?? 0);
-    } catch {
-      let filtered = MOCK_PROJECTS;
-      if (search) filtered = filtered.filter((p) => p.titleEn.toLowerCase().includes(search.toLowerCase()));
-      if (categoryFilter) filtered = filtered.filter((p) => p.category === categoryFilter);
-      if (statusFilter) filtered = filtered.filter((p) => p.status === statusFilter);
-      setTotal(filtered.length);
-      setProjects(filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
+    } catch (err) {
+      setProjects([]);
+      setTotal(0);
+      setError(extractError(err));
     } finally {
       setLoading(false);
     }
@@ -148,8 +145,8 @@ export default function ProjectsPage() {
       header: 'Project',
       render: (p: Project) => (
         <div>
-          <p className="font-medium text-text-primary text-sm">{p.titleEn}</p>
-          <p className="text-xs text-text-muted">{p.cityEn} · {getCategoryLabel(p.category)}</p>
+          <p className="font-medium text-text-primary text-sm">{p.title}</p>
+          <p className="text-xs text-text-muted">{p.city} · {getCategoryLabel(p.category)}</p>
         </div>
       ),
     },
@@ -162,12 +159,12 @@ export default function ProjectsPage() {
       key: 'progress',
       header: 'Progress',
       render: (p: Project) => {
-        const pct = Math.min(100, Math.round((p.raised / p.goal) * 100));
+        const pct = Math.min(100, Math.round((p.currentAmount / p.fundingGoal) * 100));
         return (
           <div className="w-32">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium text-text-primary">{pct}%</span>
-              <span className="text-xs text-text-muted">{formatCurrency(p.raised)}</span>
+              <span className="text-xs text-text-muted">{formatCurrency(p.currentAmount)}</span>
             </div>
             <div className="h-1.5 bg-background-dark rounded-full overflow-hidden">
               <div
@@ -180,10 +177,10 @@ export default function ProjectsPage() {
       },
     },
     {
-      key: 'goal',
+      key: 'fundingGoal',
       header: 'Goal',
       render: (p: Project) => (
-        <span className="text-sm font-medium text-text-primary">{formatCurrency(p.goal)}</span>
+        <span className="text-sm font-medium text-text-primary">{formatCurrency(p.fundingGoal)}</span>
       ),
     },
     {
@@ -259,7 +256,7 @@ export default function ProjectsPage() {
               <h1 className="text-2xl font-bold text-text-primary">Project Management</h1>
               <p className="text-sm text-text-muted mt-1">{total} total projects</p>
             </div>
-            <Button icon={<Plus size={16} />}>New Project</Button>
+
           </div>
         </div>
 
@@ -286,10 +283,11 @@ export default function ProjectsPage() {
           <Pagination page={page} totalPages={Math.ceil(total / PAGE_SIZE)} onPageChange={setPage} total={total} pageSize={PAGE_SIZE} />
         </Card>
 
-        <ConfirmDialog isOpen={!!approveTarget} onClose={() => setApproveTarget(null)} onConfirm={handleApprove} title="Approve Project" message={`Approve "${approveTarget?.titleEn}" and make it visible to investors?`} confirmLabel="Approve" confirmVariant="primary" loading={actionLoading} />
-        <ConfirmDialog isOpen={!!rejectTarget} onClose={() => setRejectTarget(null)} onConfirm={handleReject} title="Reject Project" message={`Reject "${rejectTarget?.titleEn}"? The owner will be notified.`} confirmLabel="Reject" loading={actionLoading} />
-        <ConfirmDialog isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete} title="Delete Project" message={`Permanently delete "${deleteTarget?.titleEn}"? This cannot be undone.`} confirmLabel="Delete" loading={actionLoading} />
+        <ConfirmDialog isOpen={!!approveTarget} onClose={() => setApproveTarget(null)} onConfirm={handleApprove} title="Approve Project" message={`Approve "${approveTarget?.title}" and make it visible to investors?`} confirmLabel="Approve" confirmVariant="primary" loading={actionLoading} />
+        <ConfirmDialog isOpen={!!rejectTarget} onClose={() => setRejectTarget(null)} onConfirm={handleReject} title="Reject Project" message={`Reject "${rejectTarget?.title}"? The owner will be notified.`} confirmLabel="Reject" loading={actionLoading} />
+        <ConfirmDialog isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete} title="Delete Project" message={`Permanently delete "${deleteTarget?.title}"? This cannot be undone.`} confirmLabel="Delete" loading={actionLoading} />
       </DashboardLayout>
     </ProtectedRoute>
   );
 }
+

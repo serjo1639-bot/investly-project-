@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Card } from '@/components/ui/Card';
 import { SearchInput } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { getRelativeTime, formatDateTime } from '@/lib/utils';
+import { adminApi } from '@/lib/api/admin';
+import { extractError, getRelativeTime, formatDateTime } from '@/lib/utils';
 import {
   LogIn,
   UserCheck,
@@ -96,10 +97,25 @@ const TYPE_OPTIONS = [
 
 export default function ActivityPage() {
   const router = useRouter();
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
 
-  const filtered = MOCK_ACTIVITY_LOGS.filter((log) => {
+  useEffect(() => {
+    setLoading(true);
+    setError('');
+    adminApi.getActivityLogs({ pageSize: 100 })
+      .then((res) => setLogs((res.data ?? []) as ActivityLog[]))
+      .catch((err) => {
+        setLogs([]);
+        setError(extractError(err));
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = logs.filter((log) => {
     if (typeFilter && log.type !== typeFilter) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -138,9 +154,17 @@ export default function ActivityPage() {
             <span className="text-xs text-text-muted ml-auto">{filtered.length} entries</span>
           </div>
 
+          {error && (
+            <div className="m-4 bg-danger-light border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger">
+              Unable to load live activity data: {error}
+            </div>
+          )}
+
           {/* Log list */}
           <div className="divide-y divide-border-light">
-            {filtered.map((log) => (
+            {loading ? (
+              <div className="p-5 text-sm text-text-muted">Loading live activity...</div>
+            ) : filtered.map((log) => (
               <div
                 key={log.id}
                 className="flex items-start gap-4 px-5 py-4 hover:bg-background-dark/20 transition-colors"
@@ -189,7 +213,7 @@ export default function ActivityPage() {
             ))}
           </div>
 
-          {filtered.length === 0 && (
+          {!loading && filtered.length === 0 && (
             <div className="text-center py-12 text-text-muted text-sm">No activity logs found</div>
           )}
         </Card>

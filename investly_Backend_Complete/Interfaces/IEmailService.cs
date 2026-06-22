@@ -1,9 +1,7 @@
-// IEmailService - Contract for sending emails
-// Currently registered but NOT wired to any business logic.
-// To enable email notifications:
-// 1. Update appsettings.json Email section with real SMTP credentials
-// 2. Inject IEmailService into AuthService (for password reset emails)
-// 3. Call SendEmailAsync when needed
+// IEmailService - Contract for sending transactional emails.
+// Implementation currently uses Resend Email API, not SMTP.
+// Keep this interface provider-neutral so we can change providers later
+// without changing controllers/services that send emails.
 
 namespace Investly_Backend.Interfaces;
 

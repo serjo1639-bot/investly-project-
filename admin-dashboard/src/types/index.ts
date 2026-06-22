@@ -6,12 +6,14 @@ export type UserStatus = 'active' | 'suspended' | 'banned' | 'pending';
 
 export interface User {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   phone: string;
   email: string;
   role: UserRole;
   type: UserType;
-  status?: UserStatus;
+  isActive?: boolean;
+  isBlocked?: boolean;
   memberId?: string;
   walletBalance?: number;
   totalTopups?: number;
@@ -20,12 +22,13 @@ export interface User {
   projectsCount?: number;
   companyName?: string | null;
   bio?: string | null;
+  deletedProjectsCount?: number;
+  entrepreneurBlockedCount?: number;
   token?: string | null;
   createdAt?: string;
   updatedAt?: string;
   isVerified?: boolean;
-  kycStatus?: 'pending' | 'approved' | 'rejected' | 'none';
-  avatar?: string | null;
+  profilePictureUrl?: string | null;
 }
 
 // ─── Project Types ──────────────────────────────────────────────────────────────
@@ -35,21 +38,16 @@ export type ProjectCategory = 'tech' | 'energy' | 'agri' | 'health' | 'edu' | 'r
 
 export interface Project {
   id: string;
-  titleAr: string;
-  titleEn: string;
-  descriptionAr?: string;
-  descriptionEn?: string;
+  title: string;
+  description?: string;
   category: ProjectCategory;
-  categoryAr?: string;
-  categoryEn?: string;
-  cityAr?: string;
-  cityEn?: string;
-  image?: string | null;
-  goal: number;
-  raised: number;
+  categoryName?: string;
+  city?: string;
+  imageUrl?: string | null;
+  fundingGoal: number;
+  currentAmount: number;
   minInvestment: number;
   maxInvestment?: number;
-  currencyCode?: string;
   status: ProjectStatus;
   reference?: string;
   ownerId?: string;
@@ -81,8 +79,8 @@ export interface Investment {
   projectTitle?: string;
   reference?: string;
   amount: number;
-  currency?: string;
-  paymentMethod?: PaymentMethod;
+  fundingPercentage?: number;
+  equityPercentage?: number;
   status: InvestmentStatus;
   investorId?: string;
   investorName?: string;
@@ -114,13 +112,23 @@ export type NotificationType = 'investment' | 'project' | 'system' | 'user';
 export interface Notification {
   id: string;
   type: NotificationType;
-  titleAr: string;
-  titleEn: string;
-  messageAr: string;
-  messageEn: string;
+  title: string;
+  message: string;
   isRead: boolean;
   createdAt: string;
   targetUserId?: string;
+}
+
+export interface BlockedEntrepreneur {
+  profileId: number;
+  userId: string | number;
+  email: string;
+  fullName: string;
+  companyName: string;
+  deletedProjectsCount: number;
+  entrepreneurBlockedCount: number;
+  isBlocked: boolean;
+  updatedAt: string;
 }
 
 // ─── Dashboard Stats ────────────────────────────────────────────────────────────
@@ -169,7 +177,6 @@ export interface LoginCredentials {
 
 export interface AuthTokens {
   token: string;
-  refreshToken: string;
 }
 
 export interface AuthSession extends AuthTokens {

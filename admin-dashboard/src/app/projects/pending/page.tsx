@@ -30,17 +30,16 @@ import {
 const MOCK_PENDING: Project[] = [
   {
     id: 'pp1',
-    titleEn: 'AI Business Intelligence Platform',
-    titleAr: 'منصة ذكاء اصطناعي للأعمال',
-    descriptionEn:
-      'A comprehensive AI-powered analytics platform that helps Libyan businesses make data-driven decisions. Includes real-time dashboards, predictive analytics, and automated reporting.',
+    title: 'منصة ذكاء اصطناعي للأعمال',
+    description:
+      'منصة تحليلات شاملة مدعومة بالذكاء الاصطناعي لمساعدة الشركات الليبية على اتخاذ قرارات تعتمد على البيانات.',
     category: 'tech',
     status: 'pending',
-    goal: 750000,
-    raised: 0,
+    fundingGoal: 750000,
+    currentAmount: 0,
     minInvestment: 2000,
     ownerName: 'Sara Ali',
-    cityEn: 'Benghazi',
+    city: 'بنغازي',
     investorsCount: 0,
     viewsCount: 45,
     teamSize: 6,
@@ -53,17 +52,16 @@ const MOCK_PENDING: Project[] = [
   },
   {
     id: 'pp2',
-    titleEn: 'Local E-Commerce Platform',
-    titleAr: 'منصة تجارة إلكترونية محلية',
-    descriptionEn:
-      'A dedicated e-commerce platform for Libyan small and medium businesses, with payment integration, delivery tracking, and seller analytics.',
+    title: 'منصة تجارة إلكترونية محلية',
+    description:
+      'منصة تجارة إلكترونية مخصصة للشركات الليبية الصغيرة والمتوسطة، مع ميزة الدفع وتتبع التوصيل.',
     category: 'tech',
     status: 'pending',
-    goal: 600000,
-    raised: 0,
+    fundingGoal: 600000,
+    currentAmount: 0,
     minInvestment: 1500,
     ownerName: 'Omar Said',
-    cityEn: 'Tripoli',
+    city: 'طرابلس',
     investorsCount: 0,
     viewsCount: 23,
     teamSize: 4,
@@ -76,17 +74,16 @@ const MOCK_PENDING: Project[] = [
   },
   {
     id: 'pp3',
-    titleEn: 'Desert Solar Farm Initiative',
-    titleAr: 'مبادرة مزرعة الطاقة الشمسية الصحراوية',
-    descriptionEn:
-      'A large-scale solar energy project to generate clean electricity for southern Libyan cities, reducing dependence on fossil fuels.',
+    title: 'مبادرة مزرعة الطاقة الشمسية الصحراوية',
+    description:
+      'مشروع ضخم للطاقة الشمسية لتوليد كهرباء نظيفة لمدن الجنوب الليبي، وتقليل الاعتماد على الوقود الأحفوري.',
     category: 'energy',
     status: 'pending',
-    goal: 2000000,
-    raised: 0,
+    fundingGoal: 2000000,
+    currentAmount: 0,
     minInvestment: 10000,
     ownerName: 'Ali Hassan',
-    cityEn: 'Sabha',
+    city: 'سبها',
     investorsCount: 0,
     viewsCount: 102,
     teamSize: 12,
@@ -123,8 +120,9 @@ export default function PendingProjectsPage() {
     try {
       const res = await projectsApi.getAllProjects({ status: 'pending', pageSize: 100 });
       setProjects(res.data ?? []);
-    } catch {
-      setProjects(MOCK_PENDING);
+    } catch (err) {
+      setProjects([]);
+      setError(extractError(err));
     } finally {
       setLoading(false);
     }
@@ -138,8 +136,7 @@ export default function PendingProjectsPage() {
   const filtered = search
     ? projects.filter(
         (p) =>
-          p.titleEn.toLowerCase().includes(search.toLowerCase()) ||
-          p.titleAr.includes(search) ||
+          p.title.toLowerCase().includes(search.toLowerCase()) ||
           (p.ownerName ?? '').toLowerCase().includes(search.toLowerCase())
       )
     : projects;
@@ -149,15 +146,15 @@ export default function PendingProjectsPage() {
   const handleApprove = async () => {
     if (!selected) return;
     setActionLoading(true);
+    setError('');
     try {
       await projectsApi.approveProject(selected.id);
-    } catch (err) {
-      console.warn('API unavailable — applied locally:', extractError(err));
-    } finally {
-      // Remove the approved project from the pending list
       setProjects((prev) => prev.filter((p) => p.id !== selected.id));
       setShowApprove(false);
       setSelected(null);
+    } catch (err) {
+      setError(extractError(err));
+    } finally {
       setActionLoading(false);
     }
   };
@@ -165,16 +162,16 @@ export default function PendingProjectsPage() {
   const handleReject = async () => {
     if (!selected) return;
     setActionLoading(true);
+    setError('');
     try {
       await projectsApi.rejectProject(selected.id, rejectReason || undefined);
-    } catch (err) {
-      console.warn('API unavailable — applied locally:', extractError(err));
-    } finally {
-      // Remove the rejected project from the pending list
       setProjects((prev) => prev.filter((p) => p.id !== selected.id));
       setShowReject(false);
       setRejectReason('');
       setSelected(null);
+    } catch (err) {
+      setError(extractError(err));
+    } finally {
       setActionLoading(false);
     }
   };
@@ -248,10 +245,9 @@ export default function PendingProjectsPage() {
                         <StatusBadge status="pending" />
                         <span className="text-xs text-text-muted">{project.reference}</span>
                       </div>
-                      <h3 className="text-base font-bold text-text-primary">{project.titleEn}</h3>
-                      <p className="text-sm text-text-muted mb-3" dir="rtl">{project.titleAr}</p>
-                      <p className="text-sm text-text-secondary leading-relaxed line-clamp-2">
-                        {project.descriptionEn}
+                      <h3 className="text-base font-bold text-text-primary" dir="rtl">{project.title}</h3>
+                      <p className="text-sm text-text-secondary leading-relaxed line-clamp-2 mt-1" dir="rtl">
+                        {project.description}
                       </p>
                       {/* Meta row */}
                       <div className="flex flex-wrap items-center gap-4 mt-4 text-xs text-text-muted">
@@ -259,10 +255,10 @@ export default function PendingProjectsPage() {
                           <User size={12} />{project.founderName ?? project.ownerName}
                         </span>
                         <span className="flex items-center gap-1.5">
-                          <Target size={12} />Goal: {formatCurrency(project.goal)}
+                          <Target size={12} />Goal: {formatCurrency(project.fundingGoal)}
                         </span>
                         <span className="flex items-center gap-1.5">
-                          <FolderOpen size={12} />{getCategoryLabel(project.category)} · {project.cityEn}
+                          <FolderOpen size={12} />{getCategoryLabel(project.category)} · {project.city}
                         </span>
                         <span className="flex items-center gap-1.5">
                           <Calendar size={12} />Submitted: {formatDate(project.createdAt)}
@@ -327,7 +323,7 @@ export default function PendingProjectsPage() {
             <CheckCircle size={18} className="text-primary flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-text-primary mb-1">
-                Approve &ldquo;{selected?.titleEn}&rdquo;?
+                Approve &ldquo;{selected?.title}&rdquo;?
               </p>
               <p className="text-sm text-text-secondary">
                 The project will become visible to investors and open for funding.
@@ -365,7 +361,7 @@ export default function PendingProjectsPage() {
             <div className="flex items-start gap-3 p-3 bg-danger-light rounded-xl border border-danger/20">
               <AlertTriangle size={18} className="text-danger flex-shrink-0 mt-0.5" />
               <p className="text-sm text-text-secondary">
-                Rejecting &ldquo;{selected?.titleEn}&rdquo; will notify the project owner.
+                Rejecting &ldquo;{selected?.title}&rdquo; will notify the project owner.
               </p>
             </div>
             <div>

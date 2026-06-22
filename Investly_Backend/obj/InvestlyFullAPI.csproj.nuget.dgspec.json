@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\m.sowan\\Desktop\\Investly\\Backend\\Investly_Backend\\InvestlyFullAPI.csproj": {}
+    "C:\\Users\\m.sowan\\Desktop\\investly-project-\\Investly_Backend\\InvestlyFullAPI.csproj": {}
   },
   "projects": {
-    "C:\\Users\\m.sowan\\Desktop\\Investly\\Backend\\Investly_Backend\\InvestlyFullAPI.csproj": {
+    "C:\\Users\\m.sowan\\Desktop\\investly-project-\\Investly_Backend\\InvestlyFullAPI.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\m.sowan\\Desktop\\Investly\\Backend\\Investly_Backend\\InvestlyFullAPI.csproj",
+        "projectUniqueName": "C:\\Users\\m.sowan\\Desktop\\investly-project-\\Investly_Backend\\InvestlyFullAPI.csproj",
         "projectName": "InvestlyFullAPI",
-        "projectPath": "C:\\Users\\m.sowan\\Desktop\\Investly\\Backend\\Investly_Backend\\InvestlyFullAPI.csproj",
+        "projectPath": "C:\\Users\\m.sowan\\Desktop\\investly-project-\\Investly_Backend\\InvestlyFullAPI.csproj",
         "packagesPath": "C:\\Users\\m.sowan\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\m.sowan\\Desktop\\Investly\\Backend\\Investly_Backend\\obj\\",
+        "outputPath": "C:\\Users\\m.sowan\\Desktop\\investly-project-\\Investly_Backend\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

@@ -44,33 +44,7 @@ const TYPE_OPTIONS = [
   { value: 'organization', label: 'Organization' },
 ];
 
-const STATUS_OPTIONS = [
-  { value: 'active', label: 'Active' },
-  { value: 'suspended', label: 'Suspended' },
-  { value: 'banned', label: 'Banned' },
-];
-
 // ── Mock fallback used when the API is offline ────────────────────────────────
-
-const MOCK_USER: User = {
-  id: 'mock',
-  name: 'Ahmad Al-Mansouri',
-  email: 'ahmad@example.com',
-  phone: '+218 91 1234567',
-  role: 'investor',
-  type: 'individual',
-  status: 'active',
-  walletBalance: 25000,
-  totalTopups: 45000,
-  contributionTotal: 20000,
-  contributionsCount: 4,
-  projectsCount: 0,
-  companyName: null,
-  bio: 'Tech investor based in Tripoli.',
-  createdAt: new Date(Date.now() - 180 * 86400000).toISOString(),
-  isVerified: true,
-  kycStatus: 'approved',
-};
 
 // ── Reusable label-value row used in info cards ───────────────────────────────
 
@@ -94,6 +68,7 @@ export default function UserDetailPage() {
 
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   // Edit modal state
   const [showEdit, setShowEdit] = useState(false);
@@ -108,9 +83,13 @@ export default function UserDetailPage() {
 
   // Fetch user on mount; fall back to mock data if API is unavailable
   useEffect(() => {
+    setLoadError('');
     usersApi.getUserById(id)
       .then(setUser)
-      .catch(() => setUser({ ...MOCK_USER, id }))
+      .catch((err) => {
+        setUser(null);
+        setLoadError(extractError(err));
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -118,12 +97,12 @@ export default function UserDetailPage() {
   const openEdit = () => {
     if (!user) return;
     setEditForm({
-      name: user.name,
+      firstName: user.firstName,
+      lastName: user.lastName,
       email: user.email,
       phone: user.phone,
       role: user.role,
       type: user.type,
-      status: user.status,
       companyName: user.companyName ?? '',
       bio: user.bio ?? '',
     });
@@ -139,37 +118,33 @@ export default function UserDetailPage() {
     try {
       const updated = await usersApi.updateUser(user.id, editForm);
       setUser(updated);
+      setShowEdit(false);
     } catch (err) {
-      // Apply changes locally so the UI stays consistent in mock mode
-      setUser((prev) => prev ? { ...prev, ...editForm } : prev);
-      console.warn('API unavailable — changes applied locally:', extractError(err));
+      setEditError(extractError(err));
     } finally {
       setEditLoading(false);
-      setShowEdit(false);
     }
   };
 
-  // Toggle suspend / unsuspend — optimistically update status
-  const isSuspended = user?.status === 'suspended';
+  // Toggle block / unblock — optimistically update status
+  const isBlocked = user?.isBlocked === true;
 
   const handleSuspendToggle = async () => {
     if (!user) return;
     setSuspendLoading(true);
     try {
-      if (isSuspended) {
+      if (isBlocked) {
         await usersApi.unsuspendUser(user.id);
-        setUser((prev) => prev ? { ...prev, status: 'active' } : prev);
+        setUser((prev) => prev ? { ...prev, isBlocked: false } : prev);
       } else {
         await usersApi.suspendUser(user.id, suspendReason || undefined);
-        setUser((prev) => prev ? { ...prev, status: 'suspended' } : prev);
+        setUser((prev) => prev ? { ...prev, isBlocked: true } : prev);
       }
+      setShowSuspend(false);
     } catch (err) {
-      // Apply locally in mock mode
-      setUser((prev) => prev ? { ...prev, status: isSuspended ? 'active' : 'suspended' } : prev);
-      console.warn('API unavailable — changes applied locally:', extractError(err));
+      setEditError(extractError(err));
     } finally {
       setSuspendLoading(false);
-      setShowSuspend(false);
       setSuspendReason('');
     }
   };
@@ -189,7 +164,17 @@ export default function UserDetailPage() {
     );
   }
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <ProtectedRoute>
+        <DashboardLayout title="User Profile">
+          <div className="bg-danger-light border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger">
+            Unable to load live user data: {loadError || 'User not found'}
+          </div>
+        </DashboardLayout>
+      </ProtectedRoute>
+    );
+  }
 
   // ── Main render ───────────────────────────────────────────────────────────
 
@@ -214,10 +199,10 @@ export default function UserDetailPage() {
               <Button
                 variant="secondary"
                 size="sm"
-                icon={isSuspended ? <CheckCircle size={14} /> : <UserX size={14} />}
+                icon={isBlocked ? <CheckCircle size={14} /> : <UserX size={14} />}
                 onClick={() => setShowSuspend(true)}
               >
-                {isSuspended ? 'Unsuspend' : 'Suspend'}
+                {isBlocked ? 'Unblock' : 'Block'}
               </Button>
             </div>
           </div>
@@ -228,12 +213,12 @@ export default function UserDetailPage() {
           <div className="lg:col-span-1">
             <Card>
               <div className="flex flex-col items-center text-center">
-                <Avatar name={user.name} size="xl" />
-                <h2 className="text-lg font-bold text-text-primary mt-3">{user.name}</h2>
+                <Avatar name={`${user.firstName} ${user.lastName}`} size="xl" />
+                <h2 className="text-lg font-bold text-text-primary mt-3">{user.firstName} {user.lastName}</h2>
                 <p className="text-sm text-text-muted">{user.email}</p>
                 <div className="flex items-center gap-2 mt-3">
                   <RoleBadge role={user.role} />
-                  <StatusBadge status={user.status ?? 'active'} />
+                  <StatusBadge status={user.isBlocked ? 'suspended' : (user.isActive ? 'active' : 'pending')} />
                 </div>
                 {user.bio && (
                   <p className="text-xs text-text-muted mt-3 text-center leading-relaxed">{user.bio}</p>
@@ -247,11 +232,6 @@ export default function UserDetailPage() {
                   <InfoRow icon={<Building size={15} />} label="Company" value={user.companyName} />
                 )}
                 <InfoRow icon={<Calendar size={15} />} label="Member Since" value={formatDate(user.createdAt)} />
-                <InfoRow
-                  icon={<Shield size={15} />}
-                  label="KYC Status"
-                  value={<StatusBadge status={user.kycStatus ?? 'none'} />}
-                />
               </div>
             </Card>
           </div>
@@ -319,12 +299,20 @@ export default function UserDetailPage() {
             </div>
           )}
           <div className="space-y-4">
-            <Input
-              label="Full Name"
-              value={editForm.name ?? ''}
-              onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="Enter full name"
-            />
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="First Name"
+                value={editForm.firstName ?? ''}
+                onChange={(e) => setEditForm((f) => ({ ...f, firstName: e.target.value }))}
+                placeholder="First name"
+              />
+              <Input
+                label="Last Name"
+                value={editForm.lastName ?? ''}
+                onChange={(e) => setEditForm((f) => ({ ...f, lastName: e.target.value }))}
+                placeholder="Last name"
+              />
+            </div>
             <Input
               label="Email Address"
               type="email"
@@ -348,21 +336,13 @@ export default function UserDetailPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-1.5">Status</label>
+                <label className="block text-sm font-medium text-text-primary mb-1.5">Account Type</label>
                 <Select
-                  options={STATUS_OPTIONS}
-                  value={editForm.status ?? 'active'}
-                  onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value as User['status'] }))}
+                  options={TYPE_OPTIONS}
+                  value={editForm.type ?? 'individual'}
+                  onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value as User['type'] }))}
                 />
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">Account Type</label>
-              <Select
-                options={TYPE_OPTIONS}
-                value={editForm.type ?? 'individual'}
-                onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value as User['type'] }))}
-              />
             </div>
             <Input
               label="Company Name (optional)"
@@ -383,11 +363,10 @@ export default function UserDetailPage() {
           </div>
         </Modal>
 
-        {/* ── Suspend / Unsuspend Confirmation Modal ────────────────────────── */}
         <Modal
           isOpen={showSuspend}
           onClose={() => setShowSuspend(false)}
-          title={isSuspended ? 'Unsuspend User' : 'Suspend User'}
+          title={isBlocked ? 'Unblock User' : 'Block User'}
           size="sm"
           footer={
             <div className="flex justify-end gap-3">
@@ -401,32 +380,31 @@ export default function UserDetailPage() {
                 onClick={handleSuspendToggle}
                 disabled={suspendLoading}
                 className={`flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-xl transition-colors disabled:opacity-50 ${
-                  isSuspended ? 'bg-primary hover:bg-primary/90' : 'bg-amber hover:bg-amber/90'
+                  isBlocked ? 'bg-primary hover:bg-primary/90' : 'bg-amber hover:bg-amber/90'
                 }`}
               >
-                {isSuspended ? <CheckCircle size={14} /> : <UserX size={14} />}
+                {isBlocked ? <CheckCircle size={14} /> : <UserX size={14} />}
                 {suspendLoading
                   ? 'Processing...'
-                  : isSuspended
-                  ? 'Confirm Unsuspend'
-                  : 'Confirm Suspend'}
+                  : isBlocked
+                  ? 'Confirm Unblock'
+                  : 'Confirm Block'}
               </button>
             </div>
           }
         >
           <div className="space-y-4">
-            {/* Warning banner */}
             <div className="flex items-start gap-3 p-3 bg-amber-light rounded-xl border border-amber/20">
               <AlertTriangle size={18} className="text-amber flex-shrink-0 mt-0.5" />
               <p className="text-sm text-text-secondary">
-                {isSuspended
-                  ? `Unsuspending ${user.name} will restore their access to the platform.`
-                  : `Suspending ${user.name} will temporarily block their access. You can unsuspend them later.`}
+                {isBlocked
+                  ? `Unblocking ${user.firstName} will restore their access to the platform.`
+                  : `Blocking ${user.firstName} will temporarily block their access. You can unblock them later.`}
               </p>
             </div>
 
             {/* Reason textarea — only shown when suspending */}
-            {!isSuspended && (
+            {!isBlocked && (
               <div>
                 <label className="block text-sm font-medium text-text-primary mb-1.5">
                   Reason <span className="text-text-muted font-normal">(optional)</span>

@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "N5eU/i6Bilo=",
+  "dgSpecHash": "VlqU3Sm0uvc=",
   "success": true,
-  "projectFilePath": "C:\\Users\\m.sowan\\Desktop\\Investly\\Backend\\Investly_Backend\\InvestlyFullAPI.csproj",
+  "projectFilePath": "C:\\Users\\m.sowan\\Desktop\\investly-project-\\Investly_Backend\\InvestlyFullAPI.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\m.sowan\\.nuget\\packages\\azure.core\\1.25.0\\azure.core.1.25.0.nupkg.sha512",
     "C:\\Users\\m.sowan\\.nuget\\packages\\azure.identity\\1.7.0\\azure.identity.1.7.0.nupkg.sha512",
@@ -90,9 +90,9 @@
       "code": "NU1902",
       "level": "Warning",
       "message": "Package 'System.IdentityModel.Tokens.Jwt' 7.0.3 has a known moderate severity vulnerability, https://github.com/advisories/GHSA-59j7-ghrg-fj52",
-      "projectPath": "C:\\Users\\m.sowan\\Desktop\\Investly\\Backend\\Investly_Backend\\InvestlyFullAPI.csproj",
+      "projectPath": "C:\\Users\\m.sowan\\Desktop\\investly-project-\\Investly_Backend\\InvestlyFullAPI.csproj",
       "warningLevel": 1,
-      "filePath": "C:\\Users\\m.sowan\\Desktop\\Investly\\Backend\\Investly_Backend\\InvestlyFullAPI.csproj",
+      "filePath": "C:\\Users\\m.sowan\\Desktop\\investly-project-\\Investly_Backend\\InvestlyFullAPI.csproj",
       "libraryId": "System.IdentityModel.Tokens.Jwt",
       "targetGraphs": [
         "net8.0"

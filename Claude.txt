@@ -1,0 +1,126 @@
+# TimeTableMS Documentation Reference
+
+*Extracted from scanned Arabic PDF via Word OCR. Arabic text may be garbled.*
+
+:(subjectPreferences)
+
+	4.32	
+
+: (timePreferences)
+
+	 4.33	
+
+102
+
+	Jgl»Jl 	c,5å.jl plhi.ll
+
+pL—u.aßUl O
+
+		JOLgaJlg 	O
+
+alg.aJI O
+
+ulcgn-pnJl
+
+ulcgn..anJl O
+
+	JgiJl	pul
+
+ul.db O pLan uu.Z}.Jl O
+
+c,Å.aåiJI alga
+
+(ITIOO)
+
+OgiJl	aun
+
+uLS.güJl
+
+	au.jl	FIS.:üJl
+
+5.37
+
+5.35 Js..å
+
+132
+
+ -5.4
+
+•O 	Edit W«tion 	Go R"'	S) 	System
+
+	X O usenpon	) urttype-spon
+
+	'rc app > 	> 	) t*paftrr.nt.tcnuynentts >
+
+	12	export class DepartmentCo•ponent implements Onlnit {
+
+lei	saveDepartment() { this. submitted true;
+
+109 return; v app	111 v cornpon.nts 112 if I:
+
+addToSchedule
+
+	113	this .buttonLoading • 
+
+0	•ppb'.•nts	true;l
+
+auth
+
+if (this.department.id) {
+
+	> 	classrcorn
+
+t h i . departmentService. updat eoepart ment (thi s . department) . subscri be(
+
+117
+
+neut: (response) 	{
+
+this.departments[thfs. 	response.data;
+
+	(7	120
+
+121	this.buttonLoading false; deputm.nrntWet'	122	this. hideo ialog();
+
+editSct.duJe
+
+	123	this.departments [ . this. departments I ;	change Octec t ',en
+
++v cn a
+
+_ep_c—'Mt _t'. j'	S2.as eø I trc _ jac t _ - subject . j' ec—onents - - • subjects•mdule
+
+	-sasscs.	ects - subjects -mdule
+
+	Snr_ "p_ 	e. 	e_ts. j	• 	• schedule
+
+auth 	• password•mdul•
+
+auth • 	• 	• 	•maul
+
+_ 	n. t ructor- 	l._n•odu .	• instructor-Sch.e.a • ins	'5.57 •e d.' t - 	_pr imng_f..n2e22_øriN"g • icons - check_mj • nod._mdu	.u42c2.	- departmnt • default- 	ice_c I 	i c._u - 	- 	.	- edi 	- t-	26.82 ke _mdbie_t s. j	c—onents suE9ects	t • 	fes.m2022_pr 	_pr	22. users	22.26 v • int—l.c.'	• •ut h • login • 	•	20.46 appk.«ts	cc—on.nts
+
+	Live 	Server 	an	oøen Vour 	:
+
+5.68
+
+146
+
+J3*...11 ;
+
+O. Karmer 'Genetic Algorithm Essentials 'Oldenburg .2017 
+
+S. Mirjalili, Evolutionary Algorithms and Neural Networks, Brisbane: Springer Cham, 2019.
+
+A. Hassanat, K. Almohammadi, E. Alkafaween, E. Abunawas, A. Hammouri and V. S. Prasath, "Choosing Mutation and Crossover Ratios for Genetic
+
+Algorithms—A Review with a New Dynamic Approach," MDPi, vol. 10, no. 12, pp. 1-9, 2019.
+
+B. Selic, C. Bock and S. Cook, OMG Unified Modeling Language (Version 2.5.1), 2017.
+
+A. Bashab and A. O. Ibrahim, "Optimization Techniques in University Timetabling Problem: Constraints„" Tech Science Press, vol. 74, pp. 1-2,
+
+2023.
+
+179
+

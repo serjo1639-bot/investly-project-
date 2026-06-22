@@ -4,6 +4,16 @@
 // Notifications are bilingual (Arabic + English) to support
 // a diverse user base. This service handles CRUD operations
 // and read/unread tracking.
+//
+// IMPORTANT:
+// This is IN-APP notification logic. It writes notifications to
+// the SQL Server Notifications table so users can see them after
+// opening the app or dashboard. This does NOT require Firebase.
+//
+// Firebase is only required if we want PUSH notifications that
+// appear on the phone lock screen / notification tray while the
+// mobile app is closed or in the background. That future feature
+// would need device tokens from the mobile app.
 // ============================================================
 
 using Microsoft.EntityFrameworkCore;
@@ -23,7 +33,8 @@ public class NotificationService : INotificationService
         _context = context;
     }
 
-    // Get paginated notifications for a user, with optional unread-only filter
+    // Reads the current user's in-app notifications from the database.
+    // The frontend calls GET /api/notifications to display this list.
     public async Task<NotificationListDto> GetAllAsync(int uid, int page = 1, int pageSize = 10, bool unreadOnly = false)
     {
         var query = _context.Notifications.Where(n => n.UserId == uid);
@@ -97,10 +108,19 @@ public class NotificationService : INotificationService
         await _context.SaveChangesAsync();
     }
 
-    // Create a new notification (called from other services when events happen)
-    // Example: when a project is approved, create a notification for the entrepreneur
+    // Creates an automatic in-app notification when a backend event happens.
+    // Example: ProjectService calls this when an entrepreneur gets a delete warning
+    // or is blocked. AdminService calls it when an admin unblocks the entrepreneur.
+    //
+    // This method only inserts a row into the Notifications table.
+    // It does not send an email, SMS, or Firebase push notification.
     public async Task CreateAsync(int uid, string type, string titleAr, string titleEn, string messageAr, string messageEn, int? projectId, int? investmentId)
     {
+        titleEn = string.IsNullOrWhiteSpace(titleEn) ? titleAr : titleEn;
+        titleAr = string.IsNullOrWhiteSpace(titleAr) ? titleEn : titleAr;
+        messageEn = string.IsNullOrWhiteSpace(messageEn) ? messageAr : messageEn;
+        messageAr = string.IsNullOrWhiteSpace(messageAr) ? messageEn : messageAr;
+
         var notification = new Notification
         {
             UserId = uid,
@@ -118,4 +138,5 @@ public class NotificationService : INotificationService
         _context.Notifications.Add(notification);
         await _context.SaveChangesAsync();  // INSERT INTO Notifications ...
     }
+
 }

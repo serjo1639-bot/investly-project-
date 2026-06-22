@@ -21,10 +21,12 @@ namespace Investly_Backend.Services;
 public class ProjectService : IProjectService
 {
     private readonly AppDbContext _context;
+    private readonly INotificationService _notificationService;
 
-    public ProjectService(AppDbContext context)
+    public ProjectService(AppDbContext context, INotificationService notificationService)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     public async Task<PaginatedResult<ProjectDto>> GetAllAsync(int page = 1, int pageSize = 10, string? status = null, int? categoryId = null, string? search = null)
@@ -139,6 +141,7 @@ public class ProjectService : IProjectService
         var entrepreneurProfile = await _context.EntrepreneurProfiles
             .FirstOrDefaultAsync(ep => ep.UserId == userId);
         if (entrepreneurProfile == null) return null;
+        if (entrepreneurProfile.IsBlocked) return null;
 
         var project = new Project
         {
@@ -185,6 +188,7 @@ public class ProjectService : IProjectService
         // Ownership check: only the creator can edit their project
         if (project == null || entrepreneurProfile == null || project.CreatorProfileId != entrepreneurProfile.ProfileId)
             return null;
+        if (entrepreneurProfile.IsBlocked) return null;
 
         // Partial update: only change fields that were sent
         if (!string.IsNullOrEmpty(request.Title))
@@ -225,9 +229,46 @@ public class ProjectService : IProjectService
         // Ownership check before delete
         if (project == null || entrepreneurProfile == null || project.CreatorProfileId != entrepreneurProfile.ProfileId)
             return false;
+        if (entrepreneurProfile.IsBlocked) return false;
 
         _context.Projects.Remove(project);  // DELETE FROM Projects WHERE ProjectId = ...
+        entrepreneurProfile.DeletedProjectsCount++;
+        var shouldBlock = entrepreneurProfile.DeletedProjectsCount >= 2;
+        entrepreneurProfile.IsBlocked = shouldBlock;
+        // Automatic in-app notifications:
+        // These calls create rows in the Notifications table after the delete flow.
+        // They do not require Firebase. If we later add Firebase push, the push
+        // service can be called from NotificationService after the DB insert.
+        if (shouldBlock)
+            entrepreneurProfile.EntrepreneurBlockedCount++;
+        entrepreneurProfile.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+
+        if (shouldBlock)
+        {
+            await _notificationService.CreateAsync(
+                userId,
+                "EntrepreneurBlocked",
+                "تم حظر حساب رائد الأعمال",
+                "Entrepreneur account blocked",
+                "تم حظرك من إنشاء أو تعديل أو حذف أو إرسال المشاريع بسبب حذف مشروعين. يرجى التواصل مع الإدارة لرفع الحظر.",
+                "You have been blocked from creating, updating, deleting, or submitting projects because you deleted two projects. Please contact admin for approval.",
+                null,
+                null);
+        }
+        else
+        {
+            await _notificationService.CreateAsync(
+                userId,
+                "ProjectDeleteWarning",
+                "تنبيه حذف مشروع",
+                "Project deletion warning",
+                "تم تسجيل حذف مشروع واحد. إذا حذفت مشروعاً آخر سيتم حظر حساب رائد الأعمال الخاص بك.",
+                "One project deletion has been recorded. If you delete another project, your entrepreneur account will be blocked.",
+                null,
+                null);
+        }
+
         return true;
     }
 
@@ -241,6 +282,7 @@ public class ProjectService : IProjectService
         // Can only submit if: project exists, user owns it, status is "Draft"
         if (project == null || entrepreneurProfile == null || project.CreatorProfileId != entrepreneurProfile.ProfileId || project.Status != "Draft")
             return false;
+        if (entrepreneurProfile.IsBlocked) return false;
 
         project.Status = "Pending";  // Move to Pending for admin review
         project.UpdatedAt = DateTime.UtcNow;
@@ -322,4 +364,5 @@ public class ProjectService : IProjectService
             await _context.SaveChangesAsync();  // UPDATE Projects SET ViewsCount += 1
         }
     }
+
 }

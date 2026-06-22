@@ -11,7 +11,7 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { adminApi } from '@/lib/api/admin';
 import { Payment } from '@/types';
-import { formatDate, formatCurrency } from '@/lib/utils';
+import { extractError, formatDate, formatCurrency } from '@/lib/utils';
 import { RefreshCw, Download } from 'lucide-react';
 
 const PAGE_SIZE = 15;
@@ -24,19 +24,6 @@ const STATUS_OPTIONS = [
   { value: 'refunded', label: 'Refunded' },
 ];
 
-// Mock data fallback
-const MOCK_PAYMENTS: Payment[] = Array.from({ length: 60 }, (_, i) => ({
-  id: `pay-${i + 1}`,
-  amount: [500, 1000, 2500, 5000, 10000, 25000][i % 6],
-  currency: 'LYD',
-  method: ['wallet', 'credit_card', 'recharge_card'][i % 3],
-  status: (['completed', 'completed', 'pending', 'completed', 'failed', 'refunded'] as Payment['status'][])[i % 6],
-  userId: `user-${(i % 10) + 1}`,
-  userName: ['Ahmad Al-Mansouri', 'Fatima Zahra', 'Khaled Hassan', 'Sara Ali', 'Omar Said'][i % 5],
-  transactionId: `TXN-${String(100000 + i)}`,
-  createdAt: new Date(Date.now() - i * 86400000).toISOString(),
-}));
-
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [total, setTotal] = useState(0);
@@ -44,22 +31,19 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [error, setError] = useState('');
 
   const fetch = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
-      const res = await adminApi.getAllPayments({ page, pageSize: PAGE_SIZE, status: statusFilter || undefined });
+      const res = await adminApi.getAllPayments({ page, pageSize: PAGE_SIZE, status: statusFilter || undefined, search: search || undefined });
       setPayments(res.data ?? []);
       setTotal(res.total ?? 0);
-    } catch {
-      let filtered = MOCK_PAYMENTS;
-      if (search) filtered = filtered.filter((p) =>
-        p.userName?.toLowerCase().includes(search.toLowerCase()) ||
-        p.transactionId?.toLowerCase().includes(search.toLowerCase())
-      );
-      if (statusFilter) filtered = filtered.filter((p) => p.status === statusFilter);
-      setTotal(filtered.length);
-      setPayments(filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
+    } catch (err) {
+      setPayments([]);
+      setTotal(0);
+      setError(extractError(err));
     } finally {
       setLoading(false);
     }
@@ -70,9 +54,9 @@ export default function PaymentsPage() {
     return () => clearTimeout(t);
   }, [fetch, search]);
 
-  const completedTotal = MOCK_PAYMENTS.filter(p => p.status === 'completed').reduce((s, p) => s + p.amount, 0);
-  const failedCount = MOCK_PAYMENTS.filter(p => p.status === 'failed').length;
-  const refundedTotal = MOCK_PAYMENTS.filter(p => p.status === 'refunded').reduce((s, p) => s + p.amount, 0);
+  const completedTotal = payments.filter(p => p.status === 'completed').reduce((s, p) => s + p.amount, 0);
+  const failedCount = payments.filter(p => p.status === 'failed').length;
+  const refundedTotal = payments.filter(p => p.status === 'refunded').reduce((s, p) => s + p.amount, 0);
 
   const columns = [
     {
@@ -131,6 +115,12 @@ export default function PaymentsPage() {
         </div>
 
         {/* Summary */}
+        {error && (
+          <div className="mb-4 bg-danger-light border border-danger/20 rounded-xl px-4 py-3 text-sm text-danger">
+            Unable to load live payment data: {error}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
           {[
             { label: 'Total Transactions', value: total.toString(), color: 'text-primary' },
@@ -158,3 +148,4 @@ export default function PaymentsPage() {
     </ProtectedRoute>
   );
 }
+

@@ -55,3 +55,16 @@ public class PendingKycDto
     public string IdDocumentUrl { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
 }
+
+public class BlockedEntrepreneurDto
+{
+    public int ProfileId { get; set; }
+    public int UserId { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string CompanyName { get; set; } = string.Empty;
+    public int DeletedProjectsCount { get; set; }
+    public int EntrepreneurBlockedCount { get; set; }
+    public bool IsBlocked { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}

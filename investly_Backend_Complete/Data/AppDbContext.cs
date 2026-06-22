@@ -103,5 +103,6 @@ public class AppDbContext : DbContext
                 .HasForeignKey(w => w.WalletId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
+
     }
 }

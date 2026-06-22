@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("InvestlyFullAPI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+76788174ed9a8294a084f38a810d0088b03146b1")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9b0395a67d87c2c634d1c4e287790f71c077dff7")]
 [assembly: System.Reflection.AssemblyProductAttribute("InvestlyFullAPI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("InvestlyFullAPI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
