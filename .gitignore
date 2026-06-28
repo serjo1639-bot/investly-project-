@@ -34,3 +34,25 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 desktop.ini
+#_________ASP.NET / .NET_____________________________________
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.DotSettings.user
+
+# Rider
+.idea/
+
+# Test/build outputs
+TestReports/
+_buildcheck/
+
+# Generated reports
+api-*-results.json
+api-*-results.csv
+api-test-report.md
+
+# Logs
+*.log
